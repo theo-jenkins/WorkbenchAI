@@ -35,14 +35,15 @@ def keras_function():
     test_data -= mean
     test_data /= std
 
-    model = build_model()
+    input_shape = train_data.shape[1]
+    model = build_model(input_shape)
     model.fit(train_data, train_targets, epochs=80, batch_size=16, verbose=0)
     test_mse_score, test_mae_score = model.evaluate(test_data, test_targets)
     print(f"test_mse_score = {test_mse_score}, test_mae_score = {test_mae_score}")
 
-def build_model():
+def build_model(input_shape):
     model = models.Sequential()
-    model.add(layers.Dense(64, activation='relu', input_shape=(train_data.shape[1])))
+    model.add(layers.Dense(64, activation='relu', input_shape=(input_shape,)))
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(1))
     model.compile(optimizer='rmsprop', loss='mse', metrics=['mae'])
@@ -53,9 +54,11 @@ def main():
     user_choice = 0
     while user_choice != 2:
         user_choice = greeting()
+
+        if user_choice == 1:
+            keras_function()
     
-    if user_choice == 1:
-        keras_function()
+
 
 if __name__ == "__main__":
     main()
