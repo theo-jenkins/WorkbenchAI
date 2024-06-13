@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Flatten
 
 def greeting():
     """
@@ -36,21 +37,15 @@ def prepare_data():
     x_train, x_test = x_train / 255.0, x_test / 255.0
 
     print(f"Data prepared: {x_train[1]}, label: {y_train[1]}")
-    dataset = {
-        'x_train': x_train,
-        'y_train': y_train,
-        'x_test': x_test,
-        'y_test': y_test
-    }
-    return dataset
+    return x_train, y_train, x_test, y_test
 
-def build_model(dataset):
+def build_model(x_train):
     #Outlines the architecture of the neural network
     #Returns: neural net model
-    input_shape = dataset['x_train'].shape[1]
+    input_shape = x_train.shape[1]
 
     model = Sequential()
-    model.add(Dense(16, activation='relu', input_shape=(input_shape,)))
+    model.add(Flatten(input_shape=(28,28)))
     model.add(Dense(16, activation='relu'))
     model.add(Dense(1))
     model.compile(optimizer='rmsprop', loss='mse', metrics=['mae'])
@@ -58,9 +53,9 @@ def build_model(dataset):
     print(f"Model built")
     return model
 
-def train_model(dataset, model):
-    model.fit(dataset['x_train'], dataset['y_train'], epochs=4, batch_size=512)
-    results = model.evalute(dataset['x_test'], dataset['y_test'])
+def train_model(x_train, y_train, x_test, y_test, model):
+    model.fit(x_train, y_train, epochs=4, batch_size=512)
+    results = model.evaluate(x_test, y_test)
     print(f"results")
     return results
 
@@ -70,11 +65,11 @@ def main():
         user_choice = greeting()
 
         if user_choice == 1:
-            dataset = prepare_data()
+            x_train, y_train, x_test, y_test = prepare_data()
         if user_choice == 2:
-            model = build_model(dataset)
+            model = build_model(x_train)
         if user_choice == 3:
-            train_model(dataset, model)
+            train_model(x_train, y_train, x_test, y_test, model)
         
     
 
