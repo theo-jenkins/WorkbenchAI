@@ -119,9 +119,7 @@ def main():
         if user_choice == 4:
             image_array = load_and_process_image(train_images)
         if user_choice == 5:
-            prediction = predict(image_array, model)
-        
-    
+            prediction = predict(image_array, model)     
 
 
 if __name__ == "__main__":
