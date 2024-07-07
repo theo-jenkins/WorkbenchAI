@@ -1,11 +1,13 @@
 import tensorflow as tf
 import numpy as np
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Input, Dense, Flatten, Dropout
-from tensorflow.keras.utils import to_categorical
 import tkinter as tk
 from tkinter import filedialog
 from PIL import Image
+import psycopg2
+from psycopg2 import sql
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, Dense, Flatten, Dropout
+from tensorflow.keras.utils import to_categorical
 
 def greeting():
     """
@@ -16,44 +18,47 @@ def greeting():
     """
 
     print("This is your neural network dashboard.")
-    print("[1] - Prepare data")
-    print("[2] - Build model")
-    print("[3] - Train model")
-    print("[4] - Load file")
-    print("[5] - Predict loaded file")
-    print("[6] - Exit")
+    print("[1] - Load data")
+    print("[2] - Save to db")
+    print("[3] - Process data")
+    print("[4] - Build model")
+    print("[5] - Train model")
+    print("[6] - Make prediction")
+    print("[7] - Exit")
 
     while True:
         try:
             answer = int(input("Enter your choice:"))
-            if answer in [1,2,3,4,5,6]:
+            if answer in [1,2,3,4,5,6,7]:
                 return answer
             else:
                 print("Please enter a valid number.")
         except ValueError:
             print("Invalid input: Please enter a valid number.")
 
-def prepare_data():
-    #Load data (mnist digit dataset)
-    #x refers to images, y refers to their labels
-    (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data()
+def upload_data():
+    #This function will allow the user to select .csv file
+    root = tk.Tk()
+    root.withdraw()  # Hide the root window
+    file_path = filedialog.askopenfilename(
+    filetypes=[("PNG files", "*.png")],
+    title="Select a PNG file"
+    )
+    return file_path
 
-    #Normalize the data (between 0 - 1)
-    train_images = train_images.reshape((60000, 784)).astype('float32') / 255
-    test_images = test_images.reshape((10000, 784)).astype('float32') / 255
-    train_labels = to_categorical(train_labels) #Prepares the labels
-    test_labels = to_categorical(test_labels)
+def save_to_db():
+    #This function will allow the user to save the data to the db
+    return db
 
-    print('Data loaded!')
-    return train_images, train_labels, test_images, test_labels
+def process_data():
+    #This function will process the dataset into nn features
+    return db
 
-def build_model(train_images, train_labels, test_images, test_labels):
+def build_model():
     #Outlines the architecture of the neural network
     #Returns: neural net model
-    input_shape = train_images.shape[1:]
-
     model = Sequential()
-    #model.add(Input(shape=input_shape))
+
     model.add(Dense(128, input_shape=(28 * 28,)))
     model.add(Dropout(0.2))
     model.add(Dense(64, activation='relu'))
@@ -74,36 +79,8 @@ def train_model(train_images, train_labels, test_images, test_labels, model):
     print('Model trained!')
     return results
 
-def load_and_process_image(train_images):
-    file_path = select_file()
-    image = Image.open(file_path).convert('L') #Convert to grayscale
-    image = image.resize((28, 28)) #Resizes to 28x28 (two brackets to pass a tuple as an argument)
-    image_array = np.array(image) #Converts to numpy array
-    image_array = image_array / 255.0 #Normalizes the pixel value to be between 0 and 1
-    image_array = 1 - image_array #Inverts the picture so white=0
-    image_array = image_array.flatten()
-    #image_array= np.expand_dims(image_array, axis=-1) #Adds channel dimension
-
-    print('Image processed!')
-    return image_array
-
-def select_file():
-    root = tk.Tk()
-    root.withdraw()  # Hide the root window
-    file_path = filedialog.askopenfilename(
-        filetypes=[("PNG files", "*.png")],
-        title="Select a PNG file"
-    )
-    return file_path
-
-def predict(image_array, model):
-    prediction = model.predict(np.expand_dims(image_array, axis=0)) # Adds batch dimension
-    max_index = np.argmax(prediction) # Find the index of the maximum prediction
-    max_value = np.max(prediction) # Find the maximum prediction value
-
-    # Print the prediction results
-    print(f'Prediction: {prediction}')
-    print(f'The digit is {max_index}, with a confidence of {max_value * 100:.2f}%')
+def predict(test_data, model):
+    #This function will make a prediction
 
 def main():
     user_choice = 0

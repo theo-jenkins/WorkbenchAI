@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home</title>
+</head>
+<body>
+    <h1>Welcome to the Home Page</h1>
+    
+    {% if user.is_authenticated %}
+        <p>Hello, {{ user.username }}!</p>
+        <p>This is your dashboard</p>
+        <p><a href="{% url 'upload_data' %}">Upload data</a></p>
+        <p><a href="{% url 'process_data' %}">Process data{% if file is not None %} - {{ file.name }}{% endif %}</a></p>
+    {% else %}
+        <p>Please <a href="{% url 'login' %}">log in</a> to access more features.</p>
+        <a href="{% url 'signup' %}">Sign Up</a>
+    {% endif %}
+    {% if error_message %}
+        <p>{{ error_message }}</p>
+    {% endif %}
+</body>
+</html>
