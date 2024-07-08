@@ -30,9 +30,13 @@ class UploadFileForm(forms.Form):
     file = forms.FileField(validators=[validate_file_extensions])
 
 class ProcessDataForm(forms.Form):
-    columns = forms.MultipleChoiceField(
+    files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=True
+        )
+    columns = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=False
         )
     start_row = forms.IntegerField(min_value=0, required=True)
     end_row = forms.IntegerField(min_value=0, required=True)

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Process data</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    {% if user.is_authenticated %}
+        <h1>Select files to process</h1>
+        <form id="file-form" method="post">
+            {% csrf_token %}
+            {{ form.files }}
+            <button type="submit">Next</button>
+        </form>
+    
+        <form id="column-form" method="post" style="display: none;">
+            {% csrf_token %}
+            <div id="columns-container"></div>
+            <button type="submit">Process</button>
+        </form>
+
+        <script type="text/javascript">
+            $(document).ready(function(){
+                $('#file-form').on('change', 'input[name="files"]', function() {
+                    var selectedFiles = $('input[name="files"]:checked').map(function(){
+                        return $(this).val();
+                    }).get();
+                    console.log("Selected files: ", selectedFiles); // Debugging line
+                    $.ajax({
+                        url: "{% url 'fetch_common_columns' %}",
+                        method: "POST",
+                        data: {
+                            'files': selectedFiles,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data){
+                            console.log("Received columns: ", data.columns); // Debugging line
+                            $('#columns-container').html('');
+                            for (var i = 0; i < data.columns.length; i++) {
+                                var column = data.columns[i];
+                                $('#columns-container').append(
+                                    '<label><input type="checkbox" name="columns" value="' + column + '"> ' + column + '</label><br>'
+                                );
+                            }
+                            $('#column-form').show();
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Error: ", error); // Debugging line
+                        }
+                    });
+                });
+            });
+        </script>
+
+    {% else %}
+        <p>Please <a href="{% url 'login' %}">log in</a> to access more features.</p>
+        <a href="{% url 'signup' %}">Sign Up</a>
+    {% endif %}
+</body>
+</html>

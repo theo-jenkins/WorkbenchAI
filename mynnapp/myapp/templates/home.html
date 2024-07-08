@@ -9,8 +9,8 @@
     {% if user.is_authenticated %}
         <p>Hello, {{ user.username }}!</p>
         <p>This is your dashboard</p>
-        <p><a href="{% url 'upload_data' %}">Upload data</a></p>
-        <p><a href="{% url 'process_data' %}">Process data{% if file is not None %} - {{ file.name }}{% endif %}</a></p>
+        <p><a href="{% url 'upload_data_form' %}">Upload data</a></p>
+        <p><a href="{% url 'process_data_form' %}">Process data</a></p>
     {% else %}
         <p>Please <a href="{% url 'login' %}">log in</a> to access more features.</p>
         <a href="{% url 'signup' %}">Sign Up</a>
