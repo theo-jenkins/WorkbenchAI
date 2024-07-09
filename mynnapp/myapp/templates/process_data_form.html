@@ -12,7 +12,7 @@
             {{ form.files }}
             <button type="submit">Next</button>
         </form>
-    
+
         <form id="column-form" method="post" style="display: none;">
             {% csrf_token %}
             <div id="columns-container"></div>
@@ -21,8 +21,8 @@
 
         <script type="text/javascript">
             $(document).ready(function(){
-                $('#file-form').on('change', 'input[name="files"]', function() {
-                    var selectedFiles = $('input[name="files"]:checked').map(function(){
+                $('#file-form').on('change', 'input[name="files[]"]', function() {
+                    var selectedFiles = $('input[name="files[]"]:checked').map(function(){
                         return $(this).val();
                     }).get();
                     console.log("Selected files: ", selectedFiles); // Debugging line

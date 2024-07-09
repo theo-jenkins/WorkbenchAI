@@ -15,5 +15,18 @@
         <p>Please <a href="{% url 'login' %}">log in</a> to access more features.</p>
         <a href="{% url 'signup' %}">Sign Up</a>
     {% endif %}
+    
+    {% if form.errors %}
+        <ul>
+        {% for field in form %}
+            {% for error in field.errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+        {% endfor %}
+        {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
 </body>
 </html>

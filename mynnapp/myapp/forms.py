@@ -22,12 +22,35 @@ class CustomUserChangeForm(UserChangeForm):
 
 
 def validate_file_extensions(file):
-    valid_extensions = ['.csv']
+    valid_extensions = ['.zip', '.csv']
     if not any(file.name.endswith(ext) for ext in valid_extensions):
         raise ValidationError('Invalid file extension.')
     
+def validate_file_size(file):
+    max_size_mb = 100 # Maximum file size in MB
+    if file.size > max_size_mb * 1024 * 1024:
+        raise ValidationError(f'File size can not exceed {max_size_mb} MB.')
+
+class UploadFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+class UploadFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", UploadFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = [single_file_clean(data, initial)]
+        return result
+
 class UploadFileForm(forms.Form):
-    file = forms.FileField(validators=[validate_file_extensions])
+    file_field = UploadFileField(
+        validators=[validate_file_extensions, validate_file_size],
+    )
 
 class ProcessDataForm(forms.Form):
     files = forms.MultipleChoiceField(
@@ -38,5 +61,3 @@ class ProcessDataForm(forms.Form):
         widget=forms.CheckboxSelectMultiple,
         required=False
         )
-    start_row = forms.IntegerField(min_value=0, required=True)
-    end_row = forms.IntegerField(min_value=0, required=True)
