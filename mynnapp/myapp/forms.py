@@ -53,11 +53,24 @@ class UploadFileForm(forms.Form):
     )
 
 class ProcessDataForm(forms.Form):
+    db_title = forms.CharField(
+        required=True,
+    )
     files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
-        required=True
-        )
+        required=True,
+    )
     columns = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
-        required=False
-        )
+        required=False,
+    )
+    feature_eng = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+    )
+    start_row = forms.IntegerField(
+        initial=0,
+    )
+    end_row = forms.IntegerField(
+        required=True,
+    )
