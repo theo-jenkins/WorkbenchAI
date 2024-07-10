@@ -106,8 +106,8 @@ def fetch_common_columns(request):
     if request.method == 'POST':
         selected_files = request.POST.getlist('files[]')
         common_columns = get_common_columns(selected_files)
-        print('selected_files: {selected_files}')
-        print('common_columns: {common_columns}')
+        print(f'selected_files: {selected_files}')
+        print(f'common_columns: {common_columns}')
         return JsonResponse({'columns': common_columns})
     return JsonResponse({'columns': []})
 
