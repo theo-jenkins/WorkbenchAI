@@ -1,13 +1,14 @@
+import pandas as pd
+import os
+import zipfile
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.db import DatabaseError, transaction
-import pandas as pd
-import os
-import zipfile
+from django.db import DatabaseError, transaction, models
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm
 from .models import create_custom_db
 
@@ -137,13 +138,40 @@ def update_process_data_form(request):
 
     return JsonResponse({'columns': [], 'max_rows': 0})
 
+# Function to reformat dd/mm/yyyy into yyyy-mm-dd datetime objects
+def format_dates(df):
+    date_cols = df.select_dtypes(include=['object']).columns
+    for col in date_cols:
+        try:
+            df[col] = pd.to_datetime(df[col], format='%d/%m%Y', errors='coerce')
+        except ValueError:
+            pass
+
+# Function to clean data by replacing erroneous values with zero
+def clean_data(df):
+    # Replace -9999 with zero
+    df.replace(-9999, 0, inplace=True)
+    # Handle invalid date formats
+    df = format_dates(df)
+    # Replace missing values with zero
+    df.fillna(0, inplace=True)
+    return df
+
+# Function that gets the columns from the db of type float
+def get_float_columns(db):
+    float_columns = []
+    for field in db._meta.get_fields():
+        if isinstance(field, models.FloatField):
+            float_columns.append(field.name)
+    return float_columns
+
 # Function that creates a custom dataset and commits to the db
-def save_dataset(form, db):
-    table_name = db._meta.db_table
+def create_custom_dataset(form, db):
     selected_files = form.cleaned_data['files']
     selected_columns = form.cleaned_data['columns']
     start_row = form.cleaned_data['start_row']
     end_row = form.cleaned_data['end_row']
+    feature_eng_options = form.cleaned_data['feature_eng']
 
     # Initialise an empty list to hold dataframes
     dataframes = []
@@ -161,6 +189,28 @@ def save_dataset(form, db):
     # Trim the DataFrame to the specified rows
     trimmed_df = concat_df.iloc[start_row:end_row]
 
+    # Clean the DataFrame by handling erroneous values
+    if 'handle_missing' in feature_eng_options:
+        trimmed_df = clean_data(trimmed_df)
+        print('DataFrame cleaned successfully.')
+
+    # Fetches the float columns from the db
+    float_columns = get_float_columns(db)
+
+    # Normalize the DataFrame
+    if 'normalize' in feature_eng_options:
+        float_cols = trimmed_df.columns.intersection(float_columns)
+        scaler = MinMaxScaler()
+        trimmed_df[float_cols] = scaler.fit_transform(trimmed_df[float_cols])
+        print('DataFrame normalized successfully.')
+
+    # Standardize the DataFrame
+    if 'standardize' in feature_eng_options:
+        float_cols = trimmed_df.columns.intersection(float_columns)
+        scaler = StandardScaler()
+        trimmed_df[float_cols] = scaler.fit_transform(trimmed_df[float_cols])
+        print('DataFrame standardized successfully.')
+
     # Convert DataFrame rows to a list of model instances
     entries = [
         db(**row.to_dict())
@@ -172,13 +222,27 @@ def save_dataset(form, db):
         with transaction.atomic():
             for i in range(0, len(entries), batch_size):
                 db.objects.bulk_create(entries[i:i+batch_size])
-            print('Data saved successfully')
+                print(f'Entries saved: {i}/{len(entries)}.')
+            print('Dataset saved successfully')
     except DatabaseError as e:
         print(f'An error occured while creating the table: {e}')
         return False
     except Exception as e:
         print(f'An unexpected error occured: {e}')
         return False
+
+# Function that fetches a sample row from the .csv file
+def get_sample_row(selected_files):
+    for file in selected_files:
+        full_path = os.path.join(settings.MEDIA_ROOT, file)
+        df = pd.read_csv(full_path)
+        sample_row = df.dropna().iloc[0] # Selects the top row
+        if not sample_row.isnull().values.any():
+            return sample_row
+        else:
+            print('Could not fetch sample row.')
+    return None
+        
 
 # Function that generates process_data form and handles its logic
 def process_data_form(request):
@@ -188,6 +252,7 @@ def process_data_form(request):
         ('normalize', 'Normalization'), 
         ('standardize', 'Standardization')
     ]
+    # Populates the form
     if request.method == 'POST':
         form = ProcessDataForm(request.POST)
         form.fields['feature_eng'].choices = feature_eng_choices
@@ -195,26 +260,23 @@ def process_data_form(request):
 
         # Get the selected files
         selected_files = request.POST.getlist('files')
-        print(f'selected_files: {selected_files}')
         if selected_files:
             common_columns = get_common_columns(selected_files)
             form.fields['columns'].choices = [(col, col) for col in common_columns]
 
         if form.is_valid():
-            print('trigger')
             # Attempts to create the custom db
             title = form.cleaned_data['db_title']
             columns = form.cleaned_data['columns']
-            db = create_custom_db(title, columns)
+            sample_row = get_sample_row(selected_files)
+            db = create_custom_db(title, columns, sample_row)
 
             # Attempts the save the custom dataset
             if db:
                 db_columns = [field.name for field in db._meta.get_fields()]
                 if all(column in db_columns for column in columns):
-                    if save_dataset(form, db):
+                    if create_custom_dataset(form, db):
                         return redirect('process_success')
-        else:
-            print(f'Form error: {form.errors.as_data}')
     else:
         form = ProcessDataForm()
         form.fields['feature_eng'].choices = feature_eng_choices
