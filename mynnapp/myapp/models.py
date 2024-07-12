@@ -51,7 +51,6 @@ def create_custom_db(title, columns, sample_row):
         # Checks if the model is registered
         try:
             apps.get_model('myapp', title)
-            print(f'Model {title} already exists.')
         except LookupError:
             apps.register_model('myapp', model)
 

@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import zipfile
+import re
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.shortcuts import render, redirect
@@ -142,16 +143,20 @@ def update_process_data_form(request):
 def format_dates(df):
     date_cols = df.select_dtypes(include=['object']).columns
     for col in date_cols:
-        try:
-            df[col] = pd.to_datetime(df[col], format='%d/%m%Y', errors='coerce')
-        except ValueError:
-            pass
+        # Check if the first entry matches the dd/mm/yyyy format
+        if re.match(r'^\d{2}/\d{2}/\d{4}$', df[col].iloc[0]):
+            # Convert entire column to datetime and reformat to yyyy-mm-dd
+            df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')
+    
+    return df
+
 
 # Function to clean data by replacing erroneous values with zero
 def clean_data(df):
     # Replace -9999 with zero
     df.replace(-9999, 0, inplace=True)
     # Handle invalid date formats
+    print(f'{df.dtypes}')
     df = format_dates(df)
     # Replace missing values with zero
     df.fillna(0, inplace=True)
