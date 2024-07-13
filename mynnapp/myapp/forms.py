@@ -56,6 +56,10 @@ class ProcessDataForm(forms.Form):
     db_title = forms.CharField(
         required=True,
     )
+    comment = forms.CharField(
+        widget=forms.Textarea,
+        required=False,
+    )
     files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=True,
@@ -72,5 +76,48 @@ class ProcessDataForm(forms.Form):
         initial=0,
     )
     end_row = forms.IntegerField(
+        required=True,
+    )
+
+class BuildModelForm(forms.Form):
+    model_title = forms.CharField(
+        required=True,
+    )
+    comment = forms.CharField(
+        widget = forms.Textarea,
+        required=False,
+    )
+    model_type = forms.ChoiceField(
+        required=True,
+    )
+    features = forms.IntegerField(
+        required=True,
+        initial=1,
+    )
+    hidden_layers = forms.IntegerField(
+        required=True,
+        initial=1,
+    )
+    outputs = forms.IntegerField(
+        required=True,
+        initial=1,
+    )
+    optimizer = forms.ChoiceField(
+        required=True,
+    )
+    loss = forms.ChoiceField(
+        required=True,
+    )
+    metrics = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+    )
+
+class TrainModelForm(forms.Form):
+    chosen_dataset = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=True
+    )
+    chosen_model = forms.BooleanField(
         required=True,
     )

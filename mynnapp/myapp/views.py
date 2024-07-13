@@ -1,16 +1,20 @@
 import pandas as pd
+import tensorflow as tf
 import os
 import zipfile
 import re
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate
+from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db import DatabaseError, transaction, models
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.utils import to_categorical
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm
+from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm
 from .models import create_custom_db
 
 def home(request):
@@ -192,7 +196,7 @@ def create_custom_dataset(form, db):
     concat_df = pd.concat(dataframes, ignore_index=True)
 
     # Trim the DataFrame to the specified rows
-    trimmed_df = concat_df.iloc[start_row:end_row]
+    trimmed_df = concat_df.loc[start_row:end_row]
 
     # Clean the DataFrame by handling erroneous values
     if 'handle_missing' in feature_eng_options:
@@ -229,6 +233,7 @@ def create_custom_dataset(form, db):
                 db.objects.bulk_create(entries[i:i+batch_size])
                 print(f'Entries saved: {i}/{len(entries)}.')
             print('Dataset saved successfully')
+            return db
     except DatabaseError as e:
         print(f'An error occured while creating the table: {e}')
         return False
@@ -247,16 +252,20 @@ def get_sample_row(selected_files):
         else:
             print('Could not fetch sample row.')
     return None
-        
 
-# Function that generates process_data form and handles its logic
-def process_data_form(request):
+def fetch_process_data_form_choices():
     file_list = get_uploaded_files()
     feature_eng_choices = [
         ('handle_missing', 'Handle missing values'), 
         ('normalize', 'Normalization'), 
         ('standardize', 'Standardization')
     ]
+    return file_list, feature_eng_choices   
+
+# Function that generates process_data form and handles its logic
+def process_data_form(request):
+    file_list, feature_eng_choices = fetch_process_data_form_choices()
+    
     # Populates the form
     if request.method == 'POST':
         form = ProcessDataForm(request.POST)
@@ -276,12 +285,14 @@ def process_data_form(request):
             sample_row = get_sample_row(selected_files)
             db = create_custom_db(title, columns, sample_row)
 
-            # Attempts the save the custom dataset
             if db:
                 db_columns = [field.name for field in db._meta.get_fields()]
                 if all(column in db_columns for column in columns):
-                    if create_custom_dataset(form, db):
-                        return redirect('process_success')
+                    dataset_created = create_custom_dataset(form, db)
+                    if dataset_created:
+                        db_data = db.objects.all().values()[:50]  # Get the first 50 rows
+                        columns = db_data[0].keys() if db_data else []  # Get column names
+                        return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'columns': columns})
     else:
         form = ProcessDataForm()
         form.fields['feature_eng'].choices = feature_eng_choices
@@ -291,3 +302,99 @@ def process_data_form(request):
 
 def process_success(request):
     return render(request, 'process_success.html')
+
+# Function that builds a fully connected neural network
+def build_model(title, model_type, features, hidden_layers, outputs, optimizer, loss, metrics):
+    model = Sequential()
+
+    if model_type == 'fully_connected':
+        model.add(Dense(64, input_dim=features, activation='relu'))  # Input layer
+
+        # Add hidden layers
+        for _ in range(hidden_layers):
+            model.add(Dense(64, activation='relu'))
+
+        # Output layer
+        model.add(Dense(outputs))
+
+    # Compile the model
+    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+
+    # Saves the model as a file
+    upload_dir = os.path.join(settings.BASE_DIR, 'nn_models')
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+    model_path = os.path.join(upload_dir, f'{title}.keras')
+    model.save(model_path)
+
+    return model
+
+# Function that fetches all the neural network options for the keras library
+def fetch_keras_choices():
+    model_type_choices = [
+        ('fully_connected', 'Fully connected'),
+        ('convolutional', 'Convolutional'),
+        ('recurrent', 'Recurrent')
+    ]
+    optimizer_choices = [
+        ('adam', 'Adam'),
+        ('sgd', 'SGD'),
+        ('rmsprop', 'RMSprop'),
+        ('adagrad', 'Adagrad'),
+        ('adadelta', 'Adadelta'),
+        ('adamax', 'Adamax'),
+        ('nadam', 'Nadam')
+    ]
+    loss_choices = [
+        ('categorical_crossentropy', 'Categorical Cross-Entropy'),
+        ('binary_crossentropy', 'Binary Cross-Entropy'),
+        ('mean_squared_error', 'Mean Squared Error'),
+        ('mean_absolute_error', 'Mean Absolute Error'),
+        ('hinge', 'Hinge Loss'),
+        ('sparse_categorical_crossentropy', 'Sparse Categorical Cross-Entropy'),
+    ]
+    metric_choices = [
+        ('accuracy', 'Accuracy'),
+        ('precision', 'Precision'),
+        ('recall', 'Recall'),
+        ('f1_score', 'F1 Score'),
+        ('mean_squared_error', 'Mean Squared Error'),
+        ('mean_absolute_error', 'Mean Absolute Error')
+    ]
+    return model_type_choices, optimizer_choices, loss_choices, metric_choices
+
+# Function that handles the build_model_form logic
+def build_model_form(request):
+    model_type_choices, optimizer_choices, loss_choices, metric_choices = fetch_keras_choices()
+
+    if request.method == 'POST':
+        form = BuildModelForm(request.POST)
+        form.fields['model_type'].choices = model_type_choices
+        form.fields['optimizer'].choices = optimizer_choices
+        form.fields['loss'].choices = loss_choices
+        form.fields['metrics'].choices = metric_choices
+        
+        if form.is_valid():
+            title = form.cleaned_data['model_title']
+            model_type = form.cleaned_data['model_type']
+            features = form.cleaned_data['features']
+            hidden_layers = form.cleaned_data['hidden_layers']
+            outputs = form.cleaned_data['outputs']
+            optimizer = form.cleaned_data['optimizer']
+            loss = form.cleaned_data['loss']
+            metrics = form.cleaned_data['metrics']
+            
+            model = build_model(title, model_type, features, hidden_layers, outputs, optimizer, loss, metrics)
+
+            return redirect('home')
+    else:
+        form = BuildModelForm()
+        form.fields['model_type'].choices = model_type_choices
+        form.fields['optimizer'].choices = optimizer_choices
+        form.fields['loss'].choices = loss_choices
+        form.fields['metrics'].choices = metric_choices
+
+    return render(request, 'build_model_form.html', {'form': form})
+
+def train_model_form(request):
+    return render(request, 'train_model_form.html')

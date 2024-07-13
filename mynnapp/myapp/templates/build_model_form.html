@@ -1,14 +1,14 @@
 {% extends 'base.html' %}
 
-{% block title %}Upload files{% endblock %}
-{% block header %}Upload files{% endblock %}
+{% block title %}Build model{% endblock %}
+{% block header %}Build model{% endblock %}
 
 {% block content %}
     {% if user.is_authenticated %}
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             {{ form.as_p }}
-            <button type="submit">Upload</button>
+            <button type="submit">Build model</button>
         </form>
     {% endif %}
 {% endblock %}

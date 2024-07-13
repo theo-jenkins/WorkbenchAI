@@ -11,4 +11,6 @@ urlpatterns = [
     path('process_data_form/', views.process_data_form, name='process_data_form'),
     path('update_process_data_form/', views.update_process_data_form, name='update_process_data_form'),
     path('process_success/', views.process_success, name='process_success'),
+    path('build_model_form/', views.build_model_form, name='build_model_form'),
+    path('train_model_form', views.train_model_form, name='train_model_form'),
 ]
