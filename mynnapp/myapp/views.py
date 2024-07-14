@@ -154,7 +154,6 @@ def format_dates(df):
     
     return df
 
-
 # Function to clean data by replacing erroneous values with zero
 def clean_data(df):
     # Replace -9999 with zero
@@ -174,72 +173,51 @@ def get_float_columns(db):
             float_columns.append(field.name)
     return float_columns
 
-# Function that creates a custom dataset and commits to the db
-def create_custom_dataset(form, db):
-    selected_files = form.cleaned_data['files']
-    selected_columns = form.cleaned_data['columns']
-    start_row = form.cleaned_data['start_row']
-    end_row = form.cleaned_data['end_row']
-    feature_eng_options = form.cleaned_data['feature_eng']
-
+# Function that creates a custom dataset as a dataframe
+def create_custom_dataset(files, columns, start_row, end_row, feature_eng_choices):
     # Initialise an empty list to hold dataframes
     dataframes = []
-    batch_size = 500
 
     # Loop through each file and read it as DataFrame
-    for file_path in selected_files:
+    for file_path in files:
         full_path = os.path.join(settings.MEDIA_ROOT, file_path)
-        df = pd.read_csv(full_path, usecols=selected_columns)
-        dataframes.append(df)
-    
+        chunk_iter = pd.read_csv(full_path, usecols=columns, chunksize=100000)
+        
+        for chunk in chunk_iter:
+            dataframes.append(chunk)
+
+    print(f'length: {len(dataframes[0])} amd length2: {len(dataframes[1])}')
     # Concatenate all the DataFrames
     concat_df = pd.concat(dataframes, ignore_index=True)
 
     # Trim the DataFrame to the specified rows
-    trimmed_df = concat_df.loc[start_row:end_row]
-
+    print(f'start_row{start_row}, end_row:{end_row}')
+    print(f'length of concat: {len(concat_df)}')
+    trimmed_df = concat_df.iloc[start_row:end_row]
+    print(f'length of df: {len(trimmed_df)}')
     # Clean the DataFrame by handling erroneous values
-    if 'handle_missing' in feature_eng_options:
+    if 'handle_missing' in feature_eng_choices:
         trimmed_df = clean_data(trimmed_df)
         print('DataFrame cleaned successfully.')
 
-    # Fetches the float columns from the db
-    float_columns = get_float_columns(db)
+    # Fetches the columns which contain type float
+    float_columns = [col for col in trimmed_df.columns if pd.api.types.is_float_dtype(trimmed_df[col])]
 
     # Normalize the DataFrame
-    if 'normalize' in feature_eng_options:
+    if 'normalize' in feature_eng_choices:
         float_cols = trimmed_df.columns.intersection(float_columns)
         scaler = MinMaxScaler()
         trimmed_df[float_cols] = scaler.fit_transform(trimmed_df[float_cols])
         print('DataFrame normalized successfully.')
 
     # Standardize the DataFrame
-    if 'standardize' in feature_eng_options:
+    if 'standardize' in feature_eng_choices:
         float_cols = trimmed_df.columns.intersection(float_columns)
         scaler = StandardScaler()
         trimmed_df[float_cols] = scaler.fit_transform(trimmed_df[float_cols])
         print('DataFrame standardized successfully.')
 
-    # Convert DataFrame rows to a list of model instances
-    entries = [
-        db(**row.to_dict())
-        for index, row in trimmed_df.iterrows()
-    ]
-
-    try:
-        # Save entries in batches
-        with transaction.atomic():
-            for i in range(0, len(entries), batch_size):
-                db.objects.bulk_create(entries[i:i+batch_size])
-                print(f'Entries saved: {i}/{len(entries)}.')
-            print('Dataset saved successfully')
-            return db
-    except DatabaseError as e:
-        print(f'An error occured while creating the table: {e}')
-        return False
-    except Exception as e:
-        print(f'An unexpected error occured: {e}')
-        return False
+    return trimmed_df
 
 # Function that fetches a sample row from the .csv file
 def get_sample_row(selected_files):
@@ -262,6 +240,39 @@ def fetch_process_data_form_choices():
     ]
     return file_list, feature_eng_choices   
 
+# Function that saves a dataset to a chosen db
+def save_dataset_to_db(dataset, db):
+    # Initializes batch size for entries saved to db
+    batch_size = 500
+    # Convert DataFrame rows to a list of model instances with progress printing
+    entries = []
+    total_rows = len(dataset)
+    for index, row in dataset.iterrows():
+        entries.append(db(**row.to_dict()))
+
+        # Progress printing
+        if (index + 1) % batch_size == 0 or (index + 1) == total_rows:
+            print(f'Entries converted: {index + 1}/{total_rows}')
+
+    # Checks if all the columns of the dataset match the db
+    db_columns = [field.name for field in db._meta.get_fields()]
+    dataset_columns = dataset.columns
+    if all(column in db_columns for column in dataset_columns):
+        try:
+            # Save entries in batches
+            with transaction.atomic():
+                for i in range(0, len(entries), batch_size):
+                    db.objects.bulk_create(entries[i:i+batch_size])
+                    print(f'Entries committed: {i}/{len(entries)}.')
+                print('Dataset saved successfully')
+                return db
+        except DatabaseError as e:
+            print(f'An error occured while creating the table: {e}')
+            return False
+        except Exception as e:
+            print(f'An unexpected error occured: {e}')
+            return False
+
 # Function that generates process_data form and handles its logic
 def process_data_form(request):
     file_list, feature_eng_choices = fetch_process_data_form_choices()
@@ -279,20 +290,22 @@ def process_data_form(request):
             form.fields['columns'].choices = [(col, col) for col in common_columns]
 
         if form.is_valid():
-            # Attempts to create the custom db
-            title = form.cleaned_data['db_title']
+            # Attempts to create dataset
+            files = form.cleaned_data['files']
             columns = form.cleaned_data['columns']
-            sample_row = get_sample_row(selected_files)
-            db = create_custom_db(title, columns, sample_row)
+            start_row = form.cleaned_data['start_row']
+            end_row = form.cleaned_data['end_row']
+            feature_eng = form.cleaned_data['feature_eng']
+            dataset = create_custom_dataset(files, columns, start_row, end_row, feature_eng)
 
-            if db:
-                db_columns = [field.name for field in db._meta.get_fields()]
-                if all(column in db_columns for column in columns):
-                    dataset_created = create_custom_dataset(form, db)
-                    if dataset_created:
-                        db_data = db.objects.all().values()[:50]  # Get the first 50 rows
-                        columns = db_data[0].keys() if db_data else []  # Get column names
-                        return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'columns': columns})
+            # Attempts to create the db and save the dataset to db
+            title = form.cleaned_data['db_title']
+            db = create_custom_db(title, dataset)
+            dataset_saved = save_dataset_to_db(dataset, db)
+            if dataset_saved:
+                db_data = db.objects.all().values()[:50]  # Get the first 50 rows
+                columns = db_data[0].keys() if db_data else []  # Get column names
+                return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'columns': columns})
     else:
         form = ProcessDataForm()
         form.fields['feature_eng'].choices = feature_eng_choices

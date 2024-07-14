@@ -21,14 +21,16 @@ class UploadFile(models.Model):
     file = models.FileField(upload_to='myapp/')
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
-def create_custom_db(title, columns, sample_row):
+def create_custom_db(title, dataset):
     try:
         class Meta:
             app_label = 'myapp'
 
+        columns = dataset.columns
+
         attrs = {'__module__': 'myapp.models', 'Meta': Meta}
         for column in columns:
-            value = sample_row[column]  # Get the value from the sample row for the current column
+            value = dataset[column].iloc[0]  # Get the first value from the columns
             
             # Check if the column's value matches hour time format (hh:mm)
             if isinstance(value, str) and re.match(r'^\d{2}:\d{2}$', value):
