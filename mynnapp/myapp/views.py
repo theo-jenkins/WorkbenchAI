@@ -2,6 +2,7 @@ import pandas as pd
 import tensorflow as tf
 import os
 import zipfile
+import requests
 import re
 from django.core.exceptions import ValidationError
 from django.conf import settings
@@ -10,12 +11,14 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.db import DatabaseError, transaction, models
+from django.utils import timezone
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.utils import to_categorical
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm
-from .models import create_custom_db
+from alpha_vantage.timeseries import TimeSeries
+from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, TrainModelForm, ProcessTickerForm
+from .models import create_custom_db, Metadata
 
 def home(request):
     return render(request, 'home.html')
@@ -54,7 +57,11 @@ def upload_file(file):
         # Handles .zip files
         if file.name.endswith('.zip'):
             with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                zip_ref.extractall(upload_dir)
+                # Extract only .csv files
+                for zip_info in zip_ref.infolist():
+                    if zip_info.filename.endswith('.csv'):
+                        zip_info.filename = os.path.basename(zip_info.filename)  # Removes any directory structure
+                        zip_ref.extract(zip_info, upload_dir)
             os.remove(file_path)  # Remove the .zip file after extraction
         return file  # Return the file object for further use if needed
     except Exception as e:
@@ -186,22 +193,19 @@ def create_custom_dataset(files, columns, start_row, end_row, feature_eng_choice
         for chunk in chunk_iter:
             dataframes.append(chunk)
 
-    print(f'length: {len(dataframes[0])} amd length2: {len(dataframes[1])}')
     # Concatenate all the DataFrames
     concat_df = pd.concat(dataframes, ignore_index=True)
 
     # Trim the DataFrame to the specified rows
-    print(f'start_row{start_row}, end_row:{end_row}')
-    print(f'length of concat: {len(concat_df)}')
     trimmed_df = concat_df.iloc[start_row:end_row]
-    print(f'length of df: {len(trimmed_df)}')
+
     # Clean the DataFrame by handling erroneous values
     if 'handle_missing' in feature_eng_choices:
         trimmed_df = clean_data(trimmed_df)
         print('DataFrame cleaned successfully.')
 
     # Fetches the columns which contain type float
-    float_columns = [col for col in trimmed_df.columns if pd.api.types.is_float_dtype(trimmed_df[col])]
+    float_columns = [col for col in trimmed_df.columns if pd.api.types.is_float_dtype(trimmed_df[col]) or pd.api.types.is_integer_dtype(trimmed_df[col])]
 
     # Normalize the DataFrame
     if 'normalize' in feature_eng_choices:
@@ -218,27 +222,6 @@ def create_custom_dataset(files, columns, start_row, end_row, feature_eng_choice
         print('DataFrame standardized successfully.')
 
     return trimmed_df
-
-# Function that fetches a sample row from the .csv file
-def get_sample_row(selected_files):
-    for file in selected_files:
-        full_path = os.path.join(settings.MEDIA_ROOT, file)
-        df = pd.read_csv(full_path)
-        sample_row = df.dropna().iloc[0] # Selects the top row
-        if not sample_row.isnull().values.any():
-            return sample_row
-        else:
-            print('Could not fetch sample row.')
-    return None
-
-def fetch_process_data_form_choices():
-    file_list = get_uploaded_files()
-    feature_eng_choices = [
-        ('handle_missing', 'Handle missing values'), 
-        ('normalize', 'Normalization'), 
-        ('standardize', 'Standardization')
-    ]
-    return file_list, feature_eng_choices   
 
 # Function that saves a dataset to a chosen db
 def save_dataset_to_db(dataset, db):
@@ -273,15 +256,62 @@ def save_dataset_to_db(dataset, db):
             print(f'An unexpected error occured: {e}')
             return False
 
+# Function that saves the metadata of a dataset or model
+def save_metadata(title, comment, user, file_path, tag):
+    # Django automatically generates a unique ID
+    metadata = Metadata.objects.create(
+        title=title,
+        comment=comment,
+        user=user,
+        file_path=file_path,
+        created_at=timezone.now(),
+        tag=tag,
+    )
+    return metadata
+
+def get_db_file_path():
+    db_path = settings.DATABASES['default']['NAME']
+    return db_path
+
+def fetch_process_data_form_choices(form):
+    files = form.cleaned_data['files']
+    columns = form.cleaned_data['columns']
+    dataset_type = form.cleaned_data['dataset_type']
+    start_row = form.cleaned_data['start_row']
+    end_row = form.cleaned_data['end_row']
+    feature_eng = form.cleaned_data['feature_eng']
+    title = form.cleaned_data['db_title']
+    comment = form.cleaned_data['comment']
+
+    return files, columns, dataset_type, start_row, end_row, feature_eng, title, comment
+
+# Function that fetches the first 50 rows of a chosen database table
+def fetch_sample_dataset(db, sample_size):
+    db_data = db.objects.all().values()[:sample_size]  # Get the first 50 rows
+    columns = db_data[0].keys() if db_data else []  # Get column names
+
+    return db_data, columns
+
+def populate_process_data_form(form):
+    file_list = get_uploaded_files()
+    form.fields['files'].choices = file_list
+    form.fields['feature_eng'].choices = [
+        ('handle_missing', 'Handle missing values'), 
+        ('normalize', 'Normalization'), 
+        ('standardize', 'Standardization')
+    ]
+    form.fields['dataset_type'].choices = [
+        ('features', 'Features (Input Data)'),
+        ('outputs', 'Targets (Output Data)')
+    ]
+    return form
+
 # Function that generates process_data form and handles its logic
 def process_data_form(request):
-    file_list, feature_eng_choices = fetch_process_data_form_choices()
-    
     # Populates the form
     if request.method == 'POST':
         form = ProcessDataForm(request.POST)
-        form.fields['feature_eng'].choices = feature_eng_choices
-        form.fields['files'].choices = file_list
+        form = populate_process_data_form(form)
 
         # Get the selected files
         selected_files = request.POST.getlist('files')
@@ -290,124 +320,218 @@ def process_data_form(request):
             form.fields['columns'].choices = [(col, col) for col in common_columns]
 
         if form.is_valid():
-            # Attempts to create dataset
-            files = form.cleaned_data['files']
-            columns = form.cleaned_data['columns']
-            start_row = form.cleaned_data['start_row']
-            end_row = form.cleaned_data['end_row']
-            feature_eng = form.cleaned_data['feature_eng']
-            dataset = create_custom_dataset(files, columns, start_row, end_row, feature_eng)
+            # Fetches form variables
+            files, columns, dataset_type, start_row, end_row, feature_eng, title, comment = fetch_process_data_form_choices(form)
 
-            # Attempts to create the db and save the dataset to db
-            title = form.cleaned_data['db_title']
+            # Attempts to create the dataset, create a db, and save dataset to db
+            dataset = create_custom_dataset(files, columns, start_row, end_row, feature_eng)
             db = create_custom_db(title, dataset)
             dataset_saved = save_dataset_to_db(dataset, db)
+
+            # Handles dataset saved successfully
             if dataset_saved:
-                db_data = db.objects.all().values()[:50]  # Get the first 50 rows
-                columns = db_data[0].keys() if db_data else []  # Get column names
+                user = request.user
+                file_path = get_db_file_path()
+                metadata = save_metadata(title, comment, user, file_path, dataset_type)
+                db_data, columns = fetch_sample_dataset(db, 50)
                 return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'columns': columns})
+            else:
+                print(f'dataset_not saved:')
     else:
         form = ProcessDataForm()
-        form.fields['feature_eng'].choices = feature_eng_choices
-        form.fields['files'].choices = file_list
+        form = populate_process_data_form(form)
 
     return render(request, 'process_data_form.html', {'form': form})
 
-def process_success(request):
-    return render(request, 'process_success.html')
-
-# Function that builds a fully connected neural network
-def build_model(title, model_type, features, hidden_layers, outputs, optimizer, loss, metrics):
+# Function that builds a keras neural network
+def build_model(title, user, comment, layer_types, nodes, activations, optimizer, loss, metrics):
     model = Sequential()
 
-    if model_type == 'fully_connected':
-        model.add(Dense(64, input_dim=features, activation='relu'))  # Input layer
-
-        # Add hidden layers
-        for _ in range(hidden_layers):
-            model.add(Dense(64, activation='relu'))
-
-        # Output layer
-        model.add(Dense(outputs))
+    for i in range(len(layer_types)):
+        if i == 0:
+            # Adding the input layer
+            if layer_types[i] == 'dense':
+                model.add(Dense(nodes[i], input_dim=nodes[i], activation=activations[i]))
+        else:
+            # Adding hidden and output layers
+            if layer_types[i] == 'dense':
+                model.add(Dense(nodes[i], activation=activations[i]))
 
     # Compile the model
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     # Saves the model as a file
-    upload_dir = os.path.join(settings.BASE_DIR, 'nn_models')
-    if not os.path.exists(upload_dir):
-        os.makedirs(upload_dir)
-    model_path = os.path.join(upload_dir, f'{title}.keras')
-    model.save(model_path)
-
+    save_model(title, model, 'untrained', user, comment)
     return model
 
-# Function that fetches all the neural network options for the keras library
-def fetch_keras_choices():
-    model_type_choices = [
-        ('fully_connected', 'Fully connected'),
-        ('convolutional', 'Convolutional'),
-        ('recurrent', 'Recurrent')
-    ]
-    optimizer_choices = [
-        ('adam', 'Adam'),
-        ('sgd', 'SGD'),
-        ('rmsprop', 'RMSprop'),
-        ('adagrad', 'Adagrad'),
-        ('adadelta', 'Adadelta'),
-        ('adamax', 'Adamax'),
-        ('nadam', 'Nadam')
-    ]
-    loss_choices = [
-        ('categorical_crossentropy', 'Categorical Cross-Entropy'),
-        ('binary_crossentropy', 'Binary Cross-Entropy'),
-        ('mean_squared_error', 'Mean Squared Error'),
-        ('mean_absolute_error', 'Mean Absolute Error'),
-        ('hinge', 'Hinge Loss'),
-        ('sparse_categorical_crossentropy', 'Sparse Categorical Cross-Entropy'),
-    ]
-    metric_choices = [
-        ('accuracy', 'Accuracy'),
-        ('precision', 'Precision'),
-        ('recall', 'Recall'),
-        ('f1_score', 'F1 Score'),
-        ('mean_squared_error', 'Mean Squared Error'),
-        ('mean_absolute_error', 'Mean Absolute Error')
-    ]
-    return model_type_choices, optimizer_choices, loss_choices, metric_choices
+# Function that handles the dynamic update for the build model form
+def update_build_model_form(request):
+    hidden_layers = int(request.POST.get('hidden_layers', 0))
+    form = BuildModelForm()
+
+    layer_html = ""
+    for i in range(hidden_layers):
+        if i < hidden_layers - 1:
+            # Render Hidden layers
+            layer_html += f'<div><label for="layer_type_{i}">Hidden Layer Type {i+1}</label>{form["layer_type"]}</div>'
+            layer_html += f'<div><label for="nodes_{i}">Nodes {i+1}</label><input type="number" name="nodes_{i}" id="nodes_{i}" required></div>'
+            layer_html += f'<div><label for="activation_{i}">Activation {i+1}</label>{form["activation"]}</div>'
+        else:
+            # Render Output layer
+            layer_html += f'<div><label for="layer_type_{i}">Output Layer Type {i+1}</label>{form["layer_type"]}</div>'
+            layer_html += f'<div><label for="nodes_{i}">Outputs {i+1}</label><input type="number" name="nodes_{i}" id="nodes_{i}" required></div>'
+            layer_html += f'<div><label for="activation_{i}">Activation {i+1}</label>{form["activation"]}</div>'
+
+    return JsonResponse({'layer_html': layer_html})
 
 # Function that handles the build_model_form logic
 def build_model_form(request):
-    model_type_choices, optimizer_choices, loss_choices, metric_choices = fetch_keras_choices()
-
     if request.method == 'POST':
         form = BuildModelForm(request.POST)
-        form.fields['model_type'].choices = model_type_choices
-        form.fields['optimizer'].choices = optimizer_choices
-        form.fields['loss'].choices = loss_choices
-        form.fields['metrics'].choices = metric_choices
         
         if form.is_valid():
+            print('form verified')
             title = form.cleaned_data['model_title']
-            model_type = form.cleaned_data['model_type']
+            comment = form.cleaned_data['comment']
             features = form.cleaned_data['features']
             hidden_layers = form.cleaned_data['hidden_layers']
-            outputs = form.cleaned_data['outputs']
             optimizer = form.cleaned_data['optimizer']
             loss = form.cleaned_data['loss']
             metrics = form.cleaned_data['metrics']
             
-            model = build_model(title, model_type, features, hidden_layers, outputs, optimizer, loss, metrics)
-
+            # Extract hidden layers data
+            layer_types = []
+            nodes = [features]
+            activations = []
+            for i in range(hidden_layers):
+                layer_types.append(request.POST.get(f'layer_type_{i}'))
+                nodes.append(int(request.POST.get(f'nodes_{i}')))
+                activations.append(request.POST.get(f'activation_{i}'))
+            
+            user = request.user
+            model = build_model(title, user, comment, layer_types, activations, nodes, optimizer, loss, metrics)
+            print(f'model built successfully: {model.summary}')
+            #save_model(title, comment, model)
             return redirect('home')
+        else:
+            print(f'form errors: {form.errors}')
+            
     else:
         form = BuildModelForm()
-        form.fields['model_type'].choices = model_type_choices
-        form.fields['optimizer'].choices = optimizer_choices
-        form.fields['loss'].choices = loss_choices
-        form.fields['metrics'].choices = metric_choices
 
     return render(request, 'build_model_form.html', {'form': form})
 
+# Function that saves a keras model based on if its trained or untrained
+def save_model(title, model, trained_status, comment, user):
+    # Determine the directory based on the training status
+    if trained_status == 'trained':
+        save_dir = os.path.join(settings.BASE_DIR, 'nn_models', 'trained')
+    elif trained_status == 'untrained':
+        save_dir = os.path.join(settings.BASE_DIR, 'nn_models', 'untrained')
+    else:
+        raise ValueError(f'Training status not recognized: {trained_status}')
+
+    # Create the directory if it doesn't exist
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Construct the file path
+    model_path = os.path.join(save_dir, f'{title}.keras')
+
+    # Save the model
+    model.save(model_path)
+    print(f'Model saved successfully to: {model_path}')
+
+    # Saves the metadata
+    save_metadata(title, comment, user, model_path, trained_status)
+
+# Function that trains the selected model
+def train_model(features, output, model, batch_size, epochs, verbose, validation_split):
+        history = model.fit(features, output,
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        verbose=verbose,
+                        validation_split=validation_split)
+        return history, model
+
+def fetch_train_model_form_choices(form):
+    features = form.cleaned_data['feature_dataset']
+    output = form.cleaned_data['training_dataset']
+    batch_size = form.cleaned_data['batch_size']
+    epochs = form.cleaned_data['epochs']
+    verbose = form.cleaned_data['verbose']
+    validation_split = form.cleaned_data['validation_split']
+
+    return features, output, batch_size, epochs, verbose, validation_split
+
+# Function that populates the train model form choices
+def populate_train_model_form(form):
+    # Query for datasets tagged as 'features' or 'outputs'
+    feature_datasets = Metadata.objects.filter(tag='features')
+    training_datasets = Metadata.objects.filter(tag='outputs')
+    
+    # Query for models tagged as 'untrained'
+    untrained_models = Metadata.objects.filter(tag='untrained')
+    
+    # Prepare choices as tuples (id, title)
+    feature_choices = [(dataset.id, dataset.title) for dataset in feature_datasets]
+    training_choices = [(dataset.id, dataset.title) for dataset in training_datasets]
+    model_choices = [(model.id, model.title) for model in untrained_models]
+
+    form.fields['feature_dataset'].choices = feature_choices
+    form.fields['training_dataset'].choices = training_choices
+    form.fields['model'].choices = model_choices
+    form.fields['verbose'].choices = [
+        (0, '0'),
+        (1, '1'),
+        (2, '2')
+    ]
+    return form
+
+# Function that renders the train model form
 def train_model_form(request):
-    return render(request, 'train_model_form.html')
+    if request.method == 'POST':
+        form = TrainModelForm(request.POST)
+        if form.is_valid():
+            features, output, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
+            train_model(features, output, model, batch_size, epochs, verbose, validation_split)
+
+            title = form.cleaned_data['title']
+            comment = form.cleaned_data['comment']
+            user = request.user
+            save_model(title, model, 'trained', comment, user)
+            print('model trained succesfully')
+            return redirect('home')
+    else:
+        form = TrainModelForm()
+        populate_train_model_form(form)
+
+    return render(request, 'train_model_form.html', {'form': form})
+
+# Function that uses AlphaVantage to search for ticker data
+def search_ticker(api_key, ticker):
+    url = 'https://www.alphavantage.co/query'
+    params = {
+        'function': 'SYMBOL_SEARCH',
+        'keywords': ticker,
+        'apikey': api_key
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+
+    print(data)
+    
+    return data
+
+# Function which handles searching for a ticker form
+def process_ticker_form(request):
+    if request.method == 'POST':
+        form = ProcessTickerForm(request.POST)
+        if form.is_valid():
+            ticker = form.cleaned_data['ticker']
+            api_key = '6TZ6QYSNUILJQQ5K'
+            results = search_ticker(api_key, ticker)
+            return render(request, 'process_ticker_form.html', {'results': results})
+    else:
+        form = ProcessTickerForm()
+    return render(request, 'process_ticker_form.html', {'form': form})

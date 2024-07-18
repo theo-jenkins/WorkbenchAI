@@ -1,14 +1,19 @@
 {% extends 'base.html' %}
 
-{% block title %}Train model{% endblock %}
-{% block header %}Train model{% endblock %}
+{% block title %}Process ticker{% endblock %}
+{% block header %}Process ticker{% endblock %}
 
 {% block content %}
     {% if user.is_authenticated %}
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         {{ form.as_p }}
-        <button type="submit">Train model</button>
+        <button type="submit">Search ticker</button>
     </form>
     {% endif %}
+
+    {% if results %}
+        <p>{{ results }}</p>
+    {% endif %}
 {% endblock %}
+

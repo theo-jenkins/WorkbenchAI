@@ -60,6 +60,9 @@ class ProcessDataForm(forms.Form):
         widget=forms.Textarea,
         required=False,
     )
+    dataset_type = forms.ChoiceField(
+        required=True
+    )
     files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=True,
@@ -79,45 +82,150 @@ class ProcessDataForm(forms.Form):
         required=True,
     )
 
+LAYER_TYPE_CHOICES = [
+    ('dense', 'Dense'),
+]
+ACTIVATION_CHOICES = [
+    ('relu', 'ReLU'),
+    ('sigmoid', 'Sigmoid'),
+    ('softmax', 'Softmax'),
+    ('softplus', 'Softplus'),
+    ('softsign', 'Softsign'),
+    ('tanh', 'Tanh'),
+    ('selu', 'SELU'),
+    ('elu', 'ELU'),
+    ('exponential', 'Exponential'),
+    ('hard_sigmoid', 'Hard Sigmoid'),
+    ('linear', 'Linear'),
+    ('swish', 'Swish'),
+    ('gelu', 'GELU')
+]
+OPTIMIZER_CHOICES = [
+        ('adam', 'Adam'),
+        ('sgd', 'SGD'),
+        ('rmsprop', 'RMSprop'),
+        ('adagrad', 'Adagrad'),
+        ('adadelta', 'Adadelta'),
+        ('adamax', 'Adamax'),
+        ('nadam', 'Nadam')
+]
+LOSS_CHOICES = [
+        ('categorical_crossentropy', 'Categorical Cross-Entropy'),
+        ('binary_crossentropy', 'Binary Cross-Entropy'),
+        ('mean_squared_error', 'Mean Squared Error'),
+        ('mean_absolute_error', 'Mean Absolute Error'),
+        ('hinge', 'Hinge Loss'),
+        ('sparse_categorical_crossentropy', 'Sparse Categorical Cross-Entropy'),
+]
+METRIC_CHOICES = [
+        ('accuracy', 'Accuracy'),
+        ('precision', 'Precision'),
+        ('recall', 'Recall'),
+        ('f1_score', 'F1 Score'),
+        ('mean_squared_error', 'Mean Squared Error'),
+        ('mean_absolute_error', 'Mean Absolute Error')
+    ]
 class BuildModelForm(forms.Form):
     model_title = forms.CharField(
         required=True,
+        label='Model Title',
+        help_text='Enter the title of the model.'
     )
     comment = forms.CharField(
-        widget = forms.Textarea,
+        widget=forms.Textarea(),
         required=False,
+        label='Comment',
+        help_text='Optional: Add any comments about the model.'
     )
-    model_type = forms.ChoiceField(
+    layer_type = forms.ChoiceField(
+        choices=LAYER_TYPE_CHOICES,
         required=True,
+        label='Layer Type'
     )
     features = forms.IntegerField(
         required=True,
         initial=1,
+        min_value=1,
+        label='Features',
+        help_text='Enter the number of features for the input layer.'
     )
     hidden_layers = forms.IntegerField(
         required=True,
         initial=1,
+        min_value=1,
+        label='Hidden Layers',
+        help_text='Enter the number of hidden layers.'
     )
     outputs = forms.IntegerField(
         required=True,
         initial=1,
+        min_value=1,
+        label='Outputs',
+        help_text='Enter the number of outputs for the output layer.'
+    )
+    activation = forms.ChoiceField(
+        choices=ACTIVATION_CHOICES,
+        required=True,
+        label='Activation Function'
+    )
+    nodes = forms.IntegerField(
+        required=True,
+        min_value=1,
+        initial=1,
+        label='Nodes',
+        help_text='Enter the number of nodes for each layer.'
     )
     optimizer = forms.ChoiceField(
+        choices=OPTIMIZER_CHOICES,
         required=True,
+        label='Optimizer'
     )
     loss = forms.ChoiceField(
+        choices=LOSS_CHOICES,
         required=True,
+        label='Loss Function'
     )
     metrics = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
+        choices=METRIC_CHOICES,
         required=True,
+        label='Metrics'
     )
 
 class TrainModelForm(forms.Form):
-    chosen_dataset = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
+    feature_dataset = forms.ChoiceField(
         required=True
     )
-    chosen_model = forms.BooleanField(
+    training_dataset = forms.ChoiceField(
         required=True,
+    )
+    model = forms.ChoiceField(
+        required=True,
+    )
+    comment = forms.CharField(
+    widget=forms.Textarea(),
+    required=False,
+    )
+    batch_size = forms.IntegerField(
+        min_value=1,
+        required=True,
+        initial=500
+    )
+    epochs = forms.IntegerField(
+        min_value=1,
+        required=True,
+        initial=60,
+    )
+    verbose = forms.ChoiceField(
+        required=True,
+    )
+    validation_split = forms.IntegerField(
+        min_value=0,
+        max_value=1,
+        initial=0.05,
+    )
+
+class ProcessTickerForm(forms.Form):
+    ticker = forms.CharField(
+        required=True,        
     )

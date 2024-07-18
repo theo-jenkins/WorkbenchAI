@@ -1,6 +1,7 @@
 from django.db import models, connection, DatabaseError
 from django.apps import apps
 from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 import uuid
 import re
 import pandas as pd
@@ -17,9 +18,20 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username
 
-class UploadFile(models.Model):
-    file = models.FileField(upload_to='myapp/')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+class Metadata(models.Model):
+    title = models.CharField(max_length=255)
+    comment = models.TextField(blank=True, null=True)
+    unique_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    file_path = models.CharField(max_length=255)
+    tag = models.CharField(max_length=50) # 'features', 'outputs', 'untrained', 'trained'
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
 
 def create_custom_db(title, dataset):
     try:
