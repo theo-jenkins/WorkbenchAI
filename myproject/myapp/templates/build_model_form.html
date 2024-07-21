@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Build model{% endblock %}
+{% block header %}Build model{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <form id="model-form" method="post" enctype="multipart/form-data" action="{% url 'build_model_form' %}">
+            {% csrf_token %}
+            <div><label for="{{ form.model_title.id_for_label }}">{{ form.model_title.label }}</label>{{ form.model_title }}</div>
+            <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+
+            <div><label for="{{ form.features.id_for_label }}">{{ form.features.label }}</label>{{ form.features }}
+            <label for="{{ form.layer_type.id_for_label }}">{{ form.layer_type.label }}</label>{{ form.layer_type }}
+            <label for="{{ form.activation.id_for_label }}">{{ form.activation.label }}</label>{{ form.activation }}</div>
+
+            <div><label for="{{ form.hidden_layers.id_for_label }}">{{ form.hidden_layers.label }}</label>{{ form.hidden_layers }}</div>
+            
+            <div id="layer-container"></div>
+            
+            <div><label for="{{ form.outputs.id_for_label }}">{{ form.outputs.label }}</label>{{ form.outputs }}
+            <label for="{{ form.layer_type.id_for_label }}">{{ form.layer_type.label }}</label>{{ form.layer_type }}
+            <label for="{{ form.activation.id_for_label }}">{{ form.activation.label }}</label>{{ form.activation }}</div>
+
+            <div><label for="{{ form.optimizer.id_for_label }}">{{ form.optimizer.label }}</label>{{ form.optimizer }}
+            <label for="{{ form.loss.id_for_label }}">{{ form.loss.label }}</label>{{ form.loss }}
+            <label for="{{ form.metrics.id_for_label }}">{{ form.metrics.label }}</label>{{ form.metrics }}</div>
+            
+            <button type="submit">Build model</button>
+        </form>
+
+        <script type="text/javascript">
+            $(document).ready(function(){
+                $('#id_hidden_layers').on('change', function() {
+                    var hiddenLayers = $(this).val();
+                    $('#layer-container').html('');
+
+                    $.ajax({
+                        url: "{% url 'update_build_model_form' %}",
+                        method: "POST",
+                        data: {
+                            'hidden_layers': hiddenLayers,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data){
+                            $('#layer-container').html(data.layer_html);
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Error: ", error);
+                        }
+                    });
+                });
+            });
+        </script>
+    {% endif %}
+{% endblock %}
