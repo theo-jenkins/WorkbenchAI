@@ -20,9 +20,11 @@ from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, Buil
 from .models import create_custom_db, Metadata
 from .tasks import upload_files, create_custom_dataset, create_model_instances, train_model
 
+# View that allows the user to access there dashboard
 def home(request):
     return render(request, 'home.html')
 
+# View that allows the user to create an account
 def signup(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
@@ -116,26 +118,12 @@ def update_process_data_form(request):
 
     return JsonResponse({'columns': [], 'max_rows': 0})
 
-
-
-# Function that gets the columns from the db of type float
-def get_float_columns(db):
-    float_columns = []
-    for field in db._meta.get_fields():
-        if isinstance(field, models.FloatField):
-            float_columns.append(field.name)
-    return float_columns
-
-
-
-
-
-
-
+# Function that fetches the file path of the Django db
 def get_db_file_path():
     db_path = settings.DATABASES['default']['NAME']
     return db_path
 
+# Function that fetches the variables from the completed process_data form
 def fetch_process_data_form_choices(form):
     files = form.cleaned_data['files']
     columns = form.cleaned_data['columns']
@@ -148,14 +136,15 @@ def fetch_process_data_form_choices(form):
 
     return files, columns, dataset_type, start_row, end_row, feature_eng, title, comment
 
-# Function that fetches the first 50 rows of a chosen database table
+# Function that fetches a sample of a specified database
 def fetch_sample_dataset(db, sample_size):
     db_data = db.objects.all().values()[:sample_size]  # Get the first 50 rows
     columns = db_data[0].keys() if db_data else []  # Get column names
 
     return db_data, columns
 
-def populate_process_data_form(form):
+# Function that fills in the choices for the process data form
+def populate_process_data_form_choices(form):
     file_list = get_uploaded_files()
     form.fields['files'].choices = file_list
     form.fields['feature_eng'].choices = [
@@ -169,12 +158,12 @@ def populate_process_data_form(form):
     ]
     return form
 
-# Function that generates process_data form and handles its logic
+# View that handles the create_custom_dataset logic
 def process_data_form(request):
     # Populates the form
     if request.method == 'POST':
         form = ProcessDataForm(request.POST)
-        form = populate_process_data_form(form)
+        form = populate_process_data_form_choices(form)
 
         # Get the selected files
         selected_files = request.POST.getlist('files')
@@ -202,47 +191,64 @@ def process_data_form(request):
                 print(f'dataset_not saved:')
     else:
         form = ProcessDataForm()
-        form = populate_process_data_form(form)
+        form = populate_process_data_form_choices(form)
 
     return render(request, 'process_data_form.html', {'form': form})
 
 # Function that handles the dynamic update for the build model form
 def update_build_model_form(request):
     hidden_layers = int(request.POST.get('hidden_layers', 0))
-    form = BuildModelForm()
+    hidden_layer_form = BuildModelForm()
 
     layer_html = ""
     for i in range(hidden_layers):
         if i < hidden_layers - 1:
             # Render Hidden layers
-            layer_html += f'<div><label for="layer_type_{i}">Hidden Layer Type {i+1}</label>{form["layer_type"]}'
-            layer_html += f'<label for="nodes_{i}">Nodes {i+1}</label>{form["nodes"]}'
-            layer_html += f'<label for="activation_{i}">Activation {i+1}</label>{form["activation"]}</div>'
+            layer_html += f'<div><label for="layer_type_{i}">Hidden Layer Type {i+1}</label>{hidden_layer_form["layer_type"]}'
+            layer_html += f'<label for="nodes_{i}">Nodes {i+1}</label>{hidden_layer_form["nodes"]}'
+            layer_html += f'<label for="activation_{i}">Activation {i+1}</label>{hidden_layer_form["activation"]}</div>'
 
     return JsonResponse({'layer_html': layer_html})
 
-# Function that handles the build_model_form logic
+# View that handles the build_model_form logic
 def build_model_form(request):
     if request.method == 'POST':
         form = BuildModelForm(request.POST)
+        input_form = BuildModelForm(request.POST, prefix='input')
+        hidden_layer_form = BuildModelForm(request.POST, prefix='hidden_layer')
+        output_form = BuildModelForm(request.POST, prefix='output')
         
-        if form.is_valid():
+        if form.is_valid() and input_form.is_valid() and hidden_layer_form.is_valid() and output_form.is_valid():
             print('form verified')
             title = form.cleaned_data['model_title']
             comment = form.cleaned_data['comment']
-            features = form.cleaned_data['features']
-            outputs = form.cleaned_data['outputs']
-            hidden_layers = form.cleaned_data['hidden_layers']
-            layer_types = form.cleaned_data['layer_type']
-            activations = form.cleaned_data['activation']
-            nodes = form.cleaned_data['nodes']
             optimizer = form.cleaned_data['optimizer']
             loss = form.cleaned_data['loss']
             metrics = form.cleaned_data['metrics']
+
+            # Saves the form variables as lists
+            layer_count = int(request.POST.get('layer_count', 0))
+            activations = []
+            layer_types = []
+            nodes = []
+
+            layer_types.append(input_form.cleaned_data['layer_type'])
+            activations.append(input_form.cleaned_data['activation'])
+            nodes.append(input_form.cleaned_data['features'])
+            for i in range(layer_count):
+                activation = request.POST.get(f'activation_{i}')
+                layer_type = request.POST.get(f'layer_type_{i}')
+                node = request.POST.get(f'nodes_{i}')
+                activations.append(activation)
+                layer_types.append(layer_type)
+                nodes.append(node)
+            layer_types.append(output_form.cleaned_data['layer_type'])
+            activations.append(output_form.cleaned_data['activation'])
+            nodes.append(output_form.cleaned_data['outputs'])
+
             print(f'nodes: {nodes}, layer_types: {layer_types}: activation: {activations}')
-            nodes.insert(0, features)
-            nodes.append(outputs)
             
+            # Attempts to build the model
             user = request.user
             model = build_model.delay(title, user, comment, layer_types, activations, nodes, optimizer, loss, metrics)
             if model.successful():
@@ -253,12 +259,13 @@ def build_model_form(request):
             
     else:
         form = BuildModelForm()
+        input_form = BuildModelForm(prefix='input')
+        hidden_layer_form = BuildModelForm(prefix='hidden_layer')
+        output_form = BuildModelForm(prefix='output')
 
-    return render(request, 'build_model_form.html', {'form': form})
+    return render(request, 'build_model_form.html', {'form': form, 'input_form': input_form, 'hidden_layer_form': hidden_layer_form, 'output_form': output_form})
 
-
-
-
+# Function that fetches the variables from the completed train_model form
 def fetch_train_model_form_choices(form):
     features = form.cleaned_data['feature_dataset']
     output = form.cleaned_data['training_dataset']
@@ -269,7 +276,7 @@ def fetch_train_model_form_choices(form):
 
     return features, output, batch_size, epochs, verbose, validation_split
 
-# Function that populates the train model form choices
+# Function that populates the train_model form
 def populate_train_model_form(form):
     # Query for datasets tagged as 'features' or 'outputs'
     feature_datasets = Metadata.objects.filter(tag='features')
@@ -293,7 +300,7 @@ def populate_train_model_form(form):
     ]
     return form
 
-# Function that renders the train model form
+# View that handles the train_model form logic
 def train_model_form(request):
     if request.method == 'POST':
         form = TrainModelForm(request.POST)

@@ -27,7 +27,7 @@ def validate_file_extensions(file):
         raise ValidationError('Invalid file extension.')
     
 def validate_file_size(file):
-    max_size_mb = 100000 # Maximum file size in MB
+    max_size_mb = 100 # Maximum file size in MB
     if file.size > max_size_mb * 1024 * 1024:
         raise ValidationError(f'File size can not exceed {max_size_mb} MB.')
 
@@ -125,6 +125,7 @@ METRIC_CHOICES = [
         ('mean_squared_error', 'Mean Squared Error'),
         ('mean_absolute_error', 'Mean Absolute Error')
     ]
+
 class BuildModelForm(forms.Form):
     model_title = forms.CharField(
         required=True,
