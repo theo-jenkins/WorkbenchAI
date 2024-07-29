@@ -4,49 +4,78 @@
 {% block header %}Build your custom dataset{% endblock %}
 {% block content %}
     {% if user.is_authenticated %}
-    <form id="file-form" method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <div><label for="{{ form.db_title.id_for_label }}">{{ form.db_title.label }}</label>{{ form.db_title }}</div>
-        <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
-        <div><label for="{{ form.dataset_type.id_for_label }}">{{ form.dataset_type.label }}</label>{{ form.dataset_type }}</div>
-        <div><label for="{{ form.feature_eng.id_for_label }}">{{ form.feature_eng.label }}</label>{{ form.feature_eng }}</div>
-        <div><label for="{{ form.files.id_for_label }}">{{ form.files.label }}</label>{{ form.files }}</div>
-        <div><label for="{{ form.start_row.id_for_label }}">{{ form.start_row.label }}</label>{{ form.start_row }}</div>
-        <div><label for="end_row_input">{{ form.end_row.label }}</label><input type="number" name="end_row" id="end_row_input" required></div>
-        <div id="columns-container"></div>
-        <button type="submit">Save to database</button>
-    </form>
+        <form id="file-form" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div><label for="{{ form.db_title.id_for_label }}">{{ form.db_title.label }}</label>{{ form.db_title }}</div>
+            <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+            <div><label for="{{ form.dataset_type.id_for_label }}">{{ form.dataset_type.label }}</label>{{ form.dataset_type }}</div>
+            
+            <div><label for="{{ form.files.id_for_label }}">{{ form.files.label }}</label>{{ form.files }}</div>
 
-    <script type="text/javascript">
-        $(document).ready(function(){
-            $('#file-form').on('change', 'input[name="files"]', function() {
-                var selectedFiles = $('input[name="files"]:checked').map(function(){
-                    return $(this).val();
-                }).get();
-                $.ajax({
-                    url: "{% url 'update_process_data_form' %}",
-                    method: "POST",
-                    data: {
-                        'files': selectedFiles,
-                        'csrfmiddlewaretoken': '{{ csrf_token }}'
-                    },
-                    success: function(data){
-                        $('#columns-container').html('');
-                        for (var i = 0; i < data.columns.length; i++) {
-                            var column = data.columns[i];
-                            $('#columns-container').append(
-                                '<label><input type="checkbox" name="columns" value="' + column + '"> ' + column + '</label><br>'
-                            );
+            <div><label for="{{ form.start_row.id_for_label }}">{{ form.start_row.label }}</label>{{ form.start_row }}</div>
+            <div><label for="end_row_input">{{ form.end_row.label }}</label><input type="number" name="end_row" id="end_row_input" required></div>
+
+            <div>
+                <label for="{{ form.features.id_for_label }}">{{ form.features.label }}</label>{{ form.features }}
+                <button type="button" id="increase-layers">+</button>
+                <button type="button" id="decrease-layers">-</button>
+            </div>        
+            
+            <div id="feature-fields-container">
+                {% include 'feature_fields.html' %}
+            </div>
+
+            <button type="submit">Save to database</button>
+        </form>
+
+        <script type="text/javascript">
+            $(document).ready(function(){
+                function updateForm() {
+                    var selectedFiles = $('input[name="files"]:checked').map(function(){
+                        return $(this).val();
+                    }).get();
+                    var features = $('#id_features').val();
+                    $.ajax({
+                        url: "{% url 'update_process_data_form' %}",
+                        method: "POST",
+                        data: {
+                            'files': selectedFiles,
+                            'features': features,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data) {
+                            $('#end_row_input').attr('max', data.max_rows).val(data.max_rows);
+                            $('#feature-fields-container').html(data.feature_fields_html);
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Error: ", error);
                         }
-                        $('#end_row_input').attr('max', data.max_rows).val(data.max_rows);
-                        $('#column-container').show();
-                    },
-                    error: function(xhr, status, error) {
-                        console.error("Error: ", error); // Debugging line
+                    });
+                }
+
+                $('#file-form').on('change', 'input[name="files"]', function() {
+                    updateForm();
+                });
+
+                $('#increase-layers').click(function() {
+                    let features = parseInt($('#id_features').val());
+                    features += 1;
+                    $('#id_features').val(features);
+                    updateForm();
+                });
+
+                $('#decrease-layers').click(function() {
+                    let features = parseInt($('#id_features').val());
+                    if (features > 1) {
+                        features -= 1;
+                        $('#id_features').val(features);
+                        updateForm();
                     }
                 });
+
+                // Initial call if needed
+                updateForm();
             });
-        });
-    </script>
+        </script>
     {% endif %}
 {% endblock %}

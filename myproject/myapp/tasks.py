@@ -10,8 +10,6 @@ from django.db import transaction, DatabaseError
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 
-
-@shared_task
 # Function that validates and saves the file and deletes the .zip if applicable
 def upload_files(files):
     valid_extensions = ['.zip', '.csv']
@@ -51,14 +49,14 @@ def upload_files(files):
 
     return processed_files  # Return list of processed files
     
-@shared_task
+
 # Function that creates a custom dataset as a dataframe
-def create_custom_dataset(files, columns, start_row, end_row, feature_eng_choices):
+def create_custom_dataset(file_paths, columns, start_row, end_row, feature_eng_choices):
     # Initialise an empty list to hold dataframes
     dataframes = []
 
     # Loop through each file and read it as DataFrame
-    for file_path in files:
+    for file_path in file_paths:
         full_path = os.path.join(settings.MEDIA_ROOT, file_path)
         chunk_iter = pd.read_csv(full_path, usecols=columns, chunksize=100000)
         
@@ -70,30 +68,33 @@ def create_custom_dataset(files, columns, start_row, end_row, feature_eng_choice
 
     # Trim the DataFrame to the specified rows
     trimmed_df = concat_df.iloc[start_row:end_row]
+    df = trimmed_df
 
-    # Clean the DataFrame by handling erroneous values
-    if 'handle_missing' in feature_eng_choices:
-        trimmed_df = clean_data(trimmed_df)
-        print('DataFrame cleaned successfully.')
+    if len(columns) != len(feature_eng_choices):
+        raise ValueError('Columns and feature engineering choices do not match.')
 
-    # Fetches the columns which contain type float
-    float_columns = [col for col in trimmed_df.columns if pd.api.types.is_float_dtype(trimmed_df[col]) or pd.api.types.is_integer_dtype(trimmed_df[col])]
+    # Iterate over each column with its corresponding feature choices
+    for column, choices in zip(columns, feature_eng_choices):
+        # Use a temporary DataFrame slice to avoid SettingWithCopyWarning
+        column_data = df[[column]].copy()
 
-    # Normalize the DataFrame
-    if 'normalize' in feature_eng_choices:
-        float_cols = trimmed_df.columns.intersection(float_columns)
-        scaler = MinMaxScaler()
-        trimmed_df[float_cols] = scaler.fit_transform(trimmed_df[float_cols])
-        print('DataFrame normalized successfully.')
+        if 'handle_missing' in choices:
+            df[column] = clean_data(df[column])
+            print('Missing values handled.')
 
-    # Standardize the DataFrame
-    if 'standardize' in feature_eng_choices:
-        float_cols = trimmed_df.columns.intersection(float_columns)
-        scaler = StandardScaler()
-        trimmed_df[float_cols] = scaler.fit_transform(trimmed_df[float_cols])
-        print('DataFrame standardized successfully.')
+        if 'normalize' in choices:
+            scaler = MinMaxScaler()
+            column_data = scaler.fit_transform(column_data)
+            df[column] = column_data  # Update the original DataFrame
+            print('Dataset normalized.')
 
-    return trimmed_df
+        if 'standardize' in choices:
+            scaler = StandardScaler()
+            column_data = scaler.fit_transform(column_data)
+            df[column] = column_data  # Update the original DataFrame
+            print('Dataset standardized')
+
+    return df
 
 # Function to reformat dd/mm/yyyy into yyyy-mm-dd datetime objects
 def format_dates(df):
@@ -111,34 +112,37 @@ def clean_data(df):
     # Replace -9999 with zero
     df.replace(-9999, 0, inplace=True)
     # Handle invalid date formats
-    print(f'{df.dtypes}')
-    df = format_dates(df)
+    #df = format_dates(df)
     # Replace missing values with zero
     df.fillna(0, inplace=True)
     return df
 
-@shared_task
+
 # Function that converts a dataset into a list of model instances
 def create_model_instances(dataset, db):
-    # Initializes batch size for entries saved to db
-    batch_size = 500
-    # Convert DataFrame rows to a list of model instances with progress printing
-    entries = []
-    total_rows = len(dataset)
-    for index, row in dataset.iterrows():
-        entries.append(db(**row.to_dict()))
+    try:
+        # Initializes batch size for entries saved to db
+        batch_size = 500
+        # Convert DataFrame rows to a list of model instances with progress printing
+        entries = []
+        total_rows = len(dataset)
+        for index, row in dataset.iterrows():
+            entries.append(db(**row.to_dict()))
 
-        # Progress printing
-        if (index + 1) % batch_size == 0 or (index + 1) == total_rows:
-            print(f'Entries converted: {index + 1}/{total_rows}')
+            # Progress printing
+            if (index + 1) % batch_size == 0 or (index + 1) == total_rows:
+                print(f'Entries converted: {index + 1}/{total_rows}')
 
-    # Checks if all the columns of the dataset match the db
-    db_columns = [field.name for field in db._meta.get_fields()]
-    dataset_columns = dataset.columns
-    if all(column in db_columns for column in dataset_columns):
-        commit_to_db.delay_on_commit(entries, db, batch_size)
-    
-@shared_task
+        # Checks if all the columns of the dataset match the db
+        db_columns = [field.name for field in db._meta.get_fields()]
+        dataset_columns = dataset.columns
+        if all(column in db_columns for column in dataset_columns):
+            success = commit_to_db(entries, db, batch_size)
+            return success
+    except Exception as e:
+        print(f'An error occured while creating model instances: {e}')
+        return False
+
 # Function that commits entries to db
 def commit_to_db(entries, db, batch_size):
     try:
@@ -147,7 +151,7 @@ def commit_to_db(entries, db, batch_size):
             for i in range(0, len(entries), batch_size):
                 db.objects.bulk_create(entries[i:i+batch_size])
                 print(f'Entries committed: {i}/{len(entries)}.')
-            return db
+        return True
     except DatabaseError as e:
         print(f'An error occured while creating the table: {e}')
         return False
@@ -155,7 +159,7 @@ def commit_to_db(entries, db, batch_size):
         print(f'An unexpected error occured: {e}')
         return False
 
-@shared_task
+
 # Function that trains the selected model
 def train_model(features, output, model, batch_size, epochs, verbose, validation_split):
         history = model.fit(features, output,

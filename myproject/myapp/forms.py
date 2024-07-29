@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import CustomUser
+from .site_functions import get_uploaded_files
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm):
@@ -27,7 +28,7 @@ def validate_file_extensions(file):
         raise ValidationError('Invalid file extension.')
     
 def validate_file_size(file):
-    max_size_mb = 100 # Maximum file size in MB
+    max_size_mb = 100000 # Maximum file size in MB
     if file.size > max_size_mb * 1024 * 1024:
         raise ValidationError(f'File size can not exceed {max_size_mb} MB.')
 
@@ -51,6 +52,15 @@ class UploadFileForm(forms.Form):
     file_field = UploadFileField(
         validators=[validate_file_extensions, validate_file_size],
     )
+FEATURE_ENG_CHOICES = [
+    ('handle_missing', 'Handle missing values'),
+    ('normalize', 'Normalize'),
+    ('standardize', 'Standardize'),
+]
+DATASET_TYPES = [
+        ('features', 'Features (Input Data)'),
+        ('outputs', 'Targets (Output Data)')
+    ]
 
 class ProcessDataForm(forms.Form):
     db_title = forms.CharField(
@@ -61,19 +71,17 @@ class ProcessDataForm(forms.Form):
         required=False,
     )
     dataset_type = forms.ChoiceField(
-        required=True
+        required=True,
+        choices=DATASET_TYPES,
     )
     files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=True,
     )
-    columns = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
-        required=False,
-    )
-    feature_eng = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
-        required=False,
+    features = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=1,
     )
     start_row = forms.IntegerField(
         initial=0,
@@ -81,6 +89,31 @@ class ProcessDataForm(forms.Form):
     end_row = forms.IntegerField(
         required=True,
     )
+
+    def __init__(self, *args, **kwargs):
+        feature_count = kwargs.pop('feature_count', 1)
+        common_columns = kwargs.pop('common_columns', [])
+        super(ProcessDataForm, self).__init__(*args, **kwargs)
+
+        self.fields['files'].choices = self.get_file_choices()
+
+        for i in range(feature_count):
+            self.fields[f'column_{i}'] = forms.ChoiceField(
+                required=True,
+                label=f'Feature {i}',
+                choices=[(col, col) for col in common_columns],
+            )
+            self.fields[f'feature_eng_{i}'] = forms.MultipleChoiceField(
+                widget=forms.CheckboxSelectMultiple,
+                required=False,
+                choices=FEATURE_ENG_CHOICES,
+                label=f'Feature Engineering Options {i}',
+            )
+    @staticmethod
+    def get_file_choices():
+        files = get_uploaded_files()
+        return files
+
 
 LAYER_TYPE_CHOICES = [
     ('dense', 'Dense'),
@@ -125,57 +158,77 @@ METRIC_CHOICES = [
         ('mean_squared_error', 'Mean Squared Error'),
         ('mean_absolute_error', 'Mean Absolute Error')
     ]
-
 class BuildModelForm(forms.Form):
     model_title = forms.CharField(
         required=True,
         label='Model Title',
-        help_text='Enter the title of the model.'
     )
     comment = forms.CharField(
         widget=forms.Textarea(),
         required=False,
         label='Comment',
-        help_text='Optional: Add any comments about the model.'
     )
     features = forms.IntegerField(
         required=True,
         initial=1,
         min_value=1,
         label='Features',
-        help_text='Enter the number of features for the input layer.'
+    )
+    feature_layer_type = forms.ChoiceField(
+        choices=LAYER_TYPE_CHOICES,
+        required=True,
+        label='Layer Type'
+    )
+    feature_activation = forms.ChoiceField(
+        choices=ACTIVATION_CHOICES,
+        required=True,
+        label='Activation Function'
     )
     outputs = forms.IntegerField(
         required=True,
         initial=1,
         min_value=1,
         label='Outputs',
-        help_text='Enter the number of outputs for the output layer.'
     )
-    hidden_layers = forms.IntegerField(
-        required=True,
-        initial=1,
-        min_value=1,
-        label='Hidden Layers',
-        help_text='Enter the number of hidden layers.'
-    )
-    layer_type = forms.ChoiceField(
+    output_layer_type = forms.ChoiceField(
         choices=LAYER_TYPE_CHOICES,
         required=True,
         label='Layer Type'
     )
-    activation = forms.ChoiceField(
+    output_activation = forms.ChoiceField(
         choices=ACTIVATION_CHOICES,
         required=True,
         label='Activation Function'
     )
-    nodes = forms.IntegerField(
+    hidden_layers = forms.IntegerField(
         required=True,
-        min_value=1,
-        initial=32,
-        label='Nodes',
-        help_text='Enter the number of nodes for each layer.'
+        initial=1,
+        min_value=0,
+        label='Hidden Layers',
     )
+
+    def __init__(self, *args, **kwargs):
+        hidden_layer_count = kwargs.pop('hidden_layer_count', 1)
+        super(BuildModelForm, self).__init__(*args, **kwargs)
+        for i in range(hidden_layer_count):
+            self.fields[f'nodes_{i}'] = forms.IntegerField(
+                label=f'Nodes {i+1}',
+                required=True,
+                min_value=1,
+                initial=32,
+            )
+            self.fields[f'layer_type_{i}'] = forms.ChoiceField(
+                label=f'Hidden Layer Type {i+1}',
+                choices=LAYER_TYPE_CHOICES,
+                required=True,
+            )
+            self.fields[f'activation_{i}'] = forms.ChoiceField(
+                label=f'Activation Type {i+1}',
+                choices=ACTIVATION_CHOICES,
+                required=True,
+            )
+
+
     optimizer = forms.ChoiceField(
         choices=OPTIMIZER_CHOICES,
         required=True,
@@ -220,7 +273,7 @@ class TrainModelForm(forms.Form):
     verbose = forms.ChoiceField(
         required=True,
     )
-    validation_split = forms.IntegerField(
+    validation_split = forms.DecimalField(
         min_value=0,
         max_value=1,
         initial=0.05,
@@ -230,3 +283,5 @@ class ProcessTickerForm(forms.Form):
     ticker = forms.CharField(
         required=True,        
     )
+
+
