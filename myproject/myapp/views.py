@@ -68,8 +68,9 @@ def get_uploaded_files():
 def get_common_columns(file_paths):
     upload_dir = settings.MEDIA_ROOT
     common_columns = None
-
+    print(f'file_paths: {file_paths}')
     for file_path in file_paths:
+        print(f'file_path: {file_path}')
         full_path = os.path.join(upload_dir, file_path)
         # Read only the first row to get the columns
         df = pd.read_csv(full_path, nrows=0)  # nrows=0 loads no data rows, only headers
@@ -108,6 +109,7 @@ def get_max_rows(file_paths):
 def update_process_data_form(request):
     if request.method == 'POST':
         selected_files = request.POST.getlist('files[]')
+        print(f'selected_files: {selected_files}')
         try:
             max_rows = get_max_rows(selected_files)
             common_columns = get_common_columns(selected_files)
