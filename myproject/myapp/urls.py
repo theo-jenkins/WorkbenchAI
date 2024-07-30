@@ -14,5 +14,10 @@ urlpatterns = [
     path('build_model_form/', views.build_model_form, name='build_model_form'),
     path('update_build_model_form/', update_build_model_form, name='update_build_model_form'),
     path('train_model_form/', views.train_model_form, name='train_model_form'),
-    path('process_ticker_form/', views.process_ticker_form, name='process_ticker_form'),
+    path('view_datasets/', views.view_datasets, name='view_datasets'),
+    path('view_models/', views.view_models, name='view_models'),
+    path('view_model/<int:model_id>/', views.view_model, name='view_model'),
+    path('view_dataset/<int:dataset_id>/', views.view_dataset, name='view_dataset'),
+    path('delete_dataset/<int:dataset_id>/', views.delete_dataset, name='delete_dataset'),
+    path('delete_model/<int:model_id>/', views.delete_model, name='delete_model'),
 ]

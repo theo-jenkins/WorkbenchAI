@@ -247,19 +247,23 @@ class BuildModelForm(forms.Form):
     )
 
 class TrainModelForm(forms.Form):
+    model_title = forms.CharField(
+        required=True,
+        label='Model Title',
+    )
+    comment = forms.CharField(
+        widget=forms.Textarea(),
+        required=False,
+    )
     feature_dataset = forms.ChoiceField(
-        required=True
+        required=True,
     )
     training_dataset = forms.ChoiceField(
         required=True,
     )
     model = forms.ChoiceField(
         required=True,
-    )
-    comment = forms.CharField(
-        widget=forms.Textarea(),
-        required=False,
-    )
+    )    
     batch_size = forms.IntegerField(
         min_value=1,
         required=True,
@@ -277,11 +281,7 @@ class TrainModelForm(forms.Form):
         min_value=0,
         max_value=1,
         initial=0.05,
-    )
-
-class ProcessTickerForm(forms.Form):
-    ticker = forms.CharField(
-        required=True,        
+        decimal_places=2,
     )
 
 

@@ -7,11 +7,12 @@
     {% if user.is_authenticated %}
         <p>Hello, {{ user.username }}!</p>
         <p>This is your dashboard</p>
-        <p><a href="{% url 'upload_data_form' %}">Upload data</a></p>
-        <p><a href="{% url 'process_data_form' %}">Process data</a></p>
+        <p><a href="{% url 'upload_data_form' %}">Upload datasets</a></p>
+        <p><a href="{% url 'process_data_form' %}">Process datasets</a></p>
+        <p><a href="{% url 'view_datasets' %}">View datasets</a></p>
         <p><a href="{% url 'build_model_form' %}">Build model</a></p>
         <p><a href="{% url 'train_model_form' %}">Train model</a></p>
-        <p><a href="{% url 'process_ticker_form' %}">Search ticker</a></p>
+        <p><a href="{% url 'view_models' %}">View models</a></p>
     {% else %}
         <p>Please <a href="{% url 'login' %}">log in</a> or <a href="{% url 'signup' %}">sign up</a> to access more features.</p>
     {% endif %}

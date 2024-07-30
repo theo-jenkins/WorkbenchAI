@@ -162,9 +162,9 @@ def commit_to_db(entries, db, batch_size):
 
 # Function that trains the selected model
 def train_model(features, output, model, batch_size, epochs, verbose, validation_split):
-        history = model.fit(features, output,
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        verbose=verbose,
-                        validation_split=validation_split)
-        return history, model
+    history = model.fit(features, output,
+                    batch_size=batch_size,
+                    epochs=epochs,
+                    verbose=verbose,
+                    validation_split=validation_split)
+    return history, model

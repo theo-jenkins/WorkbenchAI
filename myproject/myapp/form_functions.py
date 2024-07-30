@@ -1,8 +1,11 @@
-from .site_functions import get_max_rows, get_common_columns, get_uploaded_files
+import sqlite3
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+from keras.models import load_model
+import pandas as pd
 from .forms import ProcessDataForm, BuildModelForm
 from .models import Metadata
+from .site_functions import get_max_rows, get_common_columns, get_uploaded_files
 
 # Function that checks what files are selected and updates the form dynamically
 def update_process_data_form(request):
@@ -94,14 +97,48 @@ def process_build_model_form(form):
 
 # Function that returns all the user choices for the train model form
 def fetch_train_model_form_choices(form):
-    features = form.cleaned_data['feature_dataset']
-    output = form.cleaned_data['training_dataset']
+    features_id = form.cleaned_data['feature_dataset']
+    outputs_id = form.cleaned_data['training_dataset']
+    model_id = form.cleaned_data['model']
     batch_size = form.cleaned_data['batch_size']
     epochs = form.cleaned_data['epochs']
     verbose = form.cleaned_data['verbose']
-    validation_split = form.cleaned_data['validation_split']
+    validation_split = float(form.cleaned_data['validation_split'])
 
-    return features, output, batch_size, epochs, verbose, validation_split
+    # Retrieves the Metadata objects
+    try:
+        features_metadata = Metadata.objects.get(id=features_id)
+        outputs_metadata = Metadata.objects.get(id=outputs_id)
+        model_metadata = Metadata.objects.get(id=model_id)
+    except Metadata.DoesNotExist:
+        return None, None, None, batch_size, epochs, verbose, validation_split
+    
+    # Load features and outputs from SQLite database
+    features, outputs = None, None
+    try:
+        features = load_sqlite_table(features_metadata.file_path, features_metadata.title)
+        outputs = load_sqlite_table(outputs_metadata.file_path, outputs_metadata.title)
+    except Exception as e:
+        print(f'Error loading SQLite tables: {e}')
+    
+    # Load keras model
+    model = None
+    try:
+        model = load_model(model_metadata.file_path)
+    except Exception as e:
+        print(f'Error loading keras model: {e}')
+
+    return features, outputs, model, batch_size, epochs, verbose, validation_split
+
+# Function to retrieve a table from the db and return as df
+def load_sqlite_table(db_path, table_name):
+    conn = sqlite3.connect(db_path)
+    query = f'SELECT * FROM "myapp_{table_name}"'
+    df = pd.read_sql_query(query, conn)
+    # Drop the first column (ID column)
+    df = df.iloc[:, 1:]
+    conn.close()
+    return df
 
 # Function that populates the train model form choices
 def populate_train_model_form(form):
@@ -111,7 +148,7 @@ def populate_train_model_form(form):
     
     # Query for models tagged as 'untrained'
     untrained_models = Metadata.objects.filter(tag='untrained')
-    
+
     # Prepare choices as tuples (id, title)
     feature_choices = [(dataset.id, dataset.title) for dataset in feature_datasets]
     training_choices = [(dataset.id, dataset.title) for dataset in training_datasets]

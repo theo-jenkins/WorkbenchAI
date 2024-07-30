@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}View models{% endblock %}
+{% block header %}View models{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <body>
+            <h1>Your models</h1>
+            <table border="1" style="border-collapse: collapse; width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Comment</th>
+                        <th>Created at</th>
+                        <th>Tag</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for model in models %}
+                    <tr>
+                        <td>{{ model.title }}</td>
+                        <td>{{ model.comment }}</td>
+                        <td>{{ model.created_at }}</td>
+                        <td>{{ model.tag }}</td>
+                        <td>
+                            <a href="{% url 'view_model' model.id %}">View</a>
+                            <a href="{% url 'delete_model' model.id %}">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </body>
+    {% endif %}
+{% endblock %}

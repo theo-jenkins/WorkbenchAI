@@ -15,7 +15,7 @@ def get_db_file_path():
     db_path = settings.DATABASES['default']['NAME']
     return db_path
 
-# Function that fetches the first 50 rows of a chosen database table
+# Function that fetches a sample of the chosen dataset
 def fetch_sample_dataset(db, sample_size):
     db_data = db.objects.all().values()[:sample_size]  # Get the first 50 rows
     columns = db_data[0].keys() if db_data else []  # Get column names

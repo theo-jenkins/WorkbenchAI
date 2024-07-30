@@ -1,12 +1,16 @@
-import requests
+import sqlite3
+import io
+import os
 from django.core.exceptions import ValidationError
-from django.conf import settings
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
-from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, TrainModelForm, ProcessTickerForm, BuildModelForm
-from .models import create_custom_db
+from django.http import HttpResponseForbidden
+from keras.models import load_model
+from contextlib import redirect_stdout
+from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, TrainModelForm, BuildModelForm
+from .models import create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
-from .site_functions import upload_file, get_uploaded_files, get_common_columns
+from .site_functions import upload_file, get_common_columns
 from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata
 from .model_functions import build_model, save_model
 from .form_functions import fetch_process_data_form_choices, process_build_model_form, fetch_train_model_form_choices, populate_train_model_form
@@ -109,7 +113,7 @@ def build_model_form(request):
             
     else:
         hidden_layer_count = 1
-        form=BuildModelForm(hidden_layer_count=hidden_layer_count)
+        form = BuildModelForm(hidden_layer_count=hidden_layer_count)
 
     layer_count_range = range(hidden_layer_count)
     return render(request, 'build_model_form.html', {'form': form, 'layer_count_range': layer_count_range})
@@ -120,16 +124,20 @@ def build_model_form(request):
 def train_model_form(request):
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
+        populate_train_model_form(form)
         if form.is_valid():
-            features, output, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
-            result = train_model(features, output, model, batch_size, epochs, verbose, validation_split)
-            if result.successful():
-                print(result.result)
-            title = form.cleaned_data['title']
+            features, outputs, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
+            print(f'Features shape: {features.shape}')
+            history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
+            print(f'modl summary: {model.summary()}, features: {features.shape}')
+            
+
+            title = form.cleaned_data['model_title']
             comment = form.cleaned_data['comment']
             user = request.user
-            save_model(title, model, 'trained', comment, user)
+            save_model(title, model, 'trained', user, comment)
             print('model trained succesfully')
+
             return redirect('home')
     else:
         form = TrainModelForm()
@@ -137,30 +145,106 @@ def train_model_form(request):
 
     return render(request, 'train_model_form.html', {'form': form})
 
-# Function that uses AlphaVantage to search for ticker data
-def search_ticker(api_key, ticker):
-    url = 'https://www.alphavantage.co/query'
-    params = {
-        'function': 'SYMBOL_SEARCH',
-        'keywords': ticker,
-        'apikey': api_key
+# View the feature and output datasets created by the signed in user
+def view_datasets(request):
+    user = request.user
+    feature_datasets = Metadata.objects.filter(user=user, tag='features')
+    output_datasets = Metadata.objects.filter(user=user, tag='outputs')
+    user_datasets = feature_datasets | output_datasets
+    context = {
+        'datasets': user_datasets
     }
-    response = requests.get(url, params=params)
-    data = response.json()
 
-    print(data)
-    
-    return data
+    return render(request, 'view_datasets.html', context)
 
-# Function which handles searching for a ticker form
-def process_ticker_form(request):
+# View an individual dataset
+def view_dataset(request, dataset_id):
+    dataset = get_object_or_404(Metadata, id=dataset_id)
+    if dataset.user != request.user:
+        return HttpResponseForbidden
+    data, columns = fetch_sample_dataset(dataset, 50)
+    return render('sample_dataset.html', {'data': data, 'columns': columns})
+
+# View to handle the delete dataset logic
+def delete_dataset(request, dataset_id):
+    dataset_metadata = get_object_or_404(Metadata, id=dataset_id)
+    if dataset_metadata.user != request.user:
+        return HttpResponseForbidden()
     if request.method == 'POST':
-        form = ProcessTickerForm(request.POST)
-        if form.is_valid():
-            ticker = form.cleaned_data['ticker']
-            api_key = '6TZ6QYSNUILJQQ5K'
-            results = search_ticker(api_key, ticker)
-            return render(request, 'process_ticker_form.html', {'results': results})
-    else:
-        form = ProcessTickerForm()
-    return render(request, 'process_ticker_form.html', {'form': form})
+        try:
+            # Connect to the SQLite database
+            conn = sqlite3.connect(dataset_metadata.file_path)
+            cursor = conn.cursor()
+            # Drop the table
+            cursor.execute(f'DROP TABLE IF EXISTS "{dataset_metadata.title}"')
+            conn.commit()
+            conn.close()
+            
+            # Delete the metadata object
+            dataset_metadata.delete()
+            return redirect('view_datasets')
+        except Exception as e:
+            print(f"Error deleting table: {e}")
+            return HttpResponseForbidden("An error occurred while deleting the dataset.")
+
+    return render(request, 'confirm_dataset_delete.html', {'dataset': dataset_metadata})
+
+# View the trained and untrained models created by the signed in user
+def view_models(request):
+    user = request.user
+    untrained_models = Metadata.objects.filter(user=user, tag='untrained')
+    trained_models = Metadata.objects.filter(user=user, tag='trained')
+    user_models = untrained_models | trained_models
+    context = {
+        'models': user_models
+    }
+    return render(request, 'view_models.html', context)
+
+# View the metrics of a model
+def view_model(request, model_id):
+    model_metadata = get_object_or_404(Metadata, id=model_id)
+    if model_metadata.user != request.user:
+        return HttpResponseForbidden
+    model = load_model(model_metadata.file_path)
+    
+    # Capture the model summary as a string
+    with io.StringIO() as buf, redirect_stdout(buf):
+        model.summary()
+        model_summary = buf.getvalue()
+    
+    # Extract layer information
+    model_layers = []
+    for layer in model.layers:
+        layer_info = {
+            'name': layer.name,
+            'input_shape': layer.input_shape if hasattr(layer, 'input_shape') else None,
+            'output_shape': layer.output_shape if hasattr(layer, 'output_shape') else None,
+            'num_params': layer.count_params()
+        }
+        model_layers.append(layer_info)
+    
+    context = {
+        'model_metadata': model_metadata,
+        'model_summary': model_summary,
+        'model_layers': model_layers,
+    }
+    
+    return render(request, 'view_model_summary.html', context)
+
+# View to handle the delete model logic
+def delete_model(request, model_id):
+    model_metadata = get_object_or_404(Metadata, id=model_id)
+    if model_metadata.user != request.user:
+        return HttpResponseForbidden
+    if request.method == 'POST':
+        try:
+            if os.path.exists(model_metadata.file_path):
+                os.remove(model_metadata.file_path)
+            else:
+                print(f'File {model_metadata.file_path} does not exist.')
+            model_metadata.delete()
+            return redirect('view_models')
+        except Exception as e:
+            print(f'Error deleting model: {e}')
+            return HttpResponseForbidden('An error occured while deleting the model.')
+    return render(request, 'confirm_model_delete.html', {'model': model_metadata})
