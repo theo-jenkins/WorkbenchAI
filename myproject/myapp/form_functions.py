@@ -39,14 +39,14 @@ def fetch_process_data_form_choices(form):
     title = form.cleaned_data['db_title']
     comment = form.cleaned_data['comment']
 
-    features = form.cleaned_data['features']
-    columns = []
-    feature_eng = []
-    for i in range(features):
-        columns.append(form.cleaned_data[f'column_{i}'])
-        feature_eng.append(form.cleaned_data[f'feature_eng_{i}'])
+    features_num = form.cleaned_data['features']
+    features = []
+    feature_eng_choices = []
+    for i in range(features_num):
+        features.append(form.cleaned_data[f'column_{i}'])
+        feature_eng_choices.append(form.cleaned_data[f'feature_eng_{i}'])
 
-    return file_paths, dataset_type, start_row, end_row, columns, feature_eng, title, comment
+    return file_paths, dataset_type, start_row, end_row, features, feature_eng_choices, title, comment
 
 
 ####################################################################

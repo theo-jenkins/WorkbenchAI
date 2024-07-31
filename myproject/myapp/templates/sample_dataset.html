@@ -9,16 +9,16 @@
     <table border="1" style="border-collapse: collapse; width: 100%;">
         <thead>
             <tr>
-                {% for column in columns %}
-                    <th style="border: 1px solid black;">{{ column }}</th>
+                {% for feature in features %}
+                    <th style="border: 1px solid black;">{{ feature }}</th>
                 {% endfor %}
             </tr>
         </thead>
         <tbody>
             {% for row in db_data %}
                 <tr>
-                    {% for column in columns %}
-                        <td style="border: 1px solid black;">{{ row|get_item:column }}</td>
+                    {% for feature in features %}
+                        <td style="border: 1px solid black;">{{ row|get_item:feature }}</td>
                     {% endfor %}
                 </tr>
             {% endfor %}

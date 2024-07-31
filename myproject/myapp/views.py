@@ -65,10 +65,10 @@ def process_data_form(request):
 
         if form.is_valid():
             # Fetches form variables
-            file_paths, dataset_type, start_row, end_row, columns, feature_eng, title, comment = fetch_process_data_form_choices(form)
+            file_paths, dataset_type, start_row, end_row, features, feature_eng_choices, title, comment = fetch_process_data_form_choices(form)
 
             # Attempts to create the dataset, create a db, and save dataset to db
-            dataset = create_custom_dataset(file_paths, columns, start_row, end_row, feature_eng)
+            dataset = create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices)
             db = create_custom_db(title, dataset)
             dataset_saved = create_model_instances(dataset, db)
 
@@ -77,8 +77,8 @@ def process_data_form(request):
                 user = request.user
                 file_path = get_db_file_path()
                 metadata = save_metadata(title, comment, user, file_path, dataset_type)
-                db_data, columns = fetch_sample_dataset(db, 50)
-                return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'columns': columns})
+                db_data, features = fetch_sample_dataset(db, 50)
+                return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'features': features})
             else:
                 print(f'dataset not saved:')
         else:
@@ -171,7 +171,7 @@ def delete_dataset(request, dataset_id):
             conn = sqlite3.connect(get_db_file_path())
             cursor = conn.cursor()
             # Drop the table
-            cursor.execute(f'DROP TABLE IF EXISTS "{dataset_metadata.title}"')
+            cursor.execute(f'DROP TABLE IF EXISTS "myapp_{dataset_metadata.title}"')
             conn.commit()
             conn.close()
             

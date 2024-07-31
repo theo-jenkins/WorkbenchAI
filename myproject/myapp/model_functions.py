@@ -51,9 +51,10 @@ def save_model(title, model, history, trained_status, user, comment):
     print(f'Model saved successfully to: {model_path}')
 
     # Save the history in JSON format
-    history_path = os.path.join(save_dir, f'history_{title}.json')
-    with open(history_path, 'w') as f:
-        json.dump(history.history, f)
+    if history is not None:
+        history_path = os.path.join(save_dir, f'history_{title}.json')
+        with open(history_path, 'w') as f:
+            json.dump(history.history, f)
 
     # Saves the metadata
     save_metadata(title, comment, user, model_path, trained_status)

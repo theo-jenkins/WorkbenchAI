@@ -51,14 +51,14 @@ def upload_files(files):
     
 
 # Function that creates a custom dataset as a dataframe
-def create_custom_dataset(file_paths, columns, start_row, end_row, feature_eng_choices):
+def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices):
     # Initialise an empty list to hold dataframes
     dataframes = []
 
     # Loop through each file and read it as DataFrame
     for file_path in file_paths:
         full_path = os.path.join(settings.MEDIA_ROOT, file_path)
-        chunk_iter = pd.read_csv(full_path, usecols=columns, chunksize=100000)
+        chunk_iter = pd.read_csv(full_path, usecols=features, chunksize=100000)
         
         for chunk in chunk_iter:
             dataframes.append(chunk)
@@ -70,28 +70,37 @@ def create_custom_dataset(file_paths, columns, start_row, end_row, feature_eng_c
     trimmed_df = concat_df.iloc[start_row:end_row]
     df = trimmed_df
 
-    if len(columns) != len(feature_eng_choices):
-        raise ValueError('Columns and feature engineering choices do not match.')
+    if len(features) != len(feature_eng_choices):
+        raise ValueError('Frequency of features and feature engineering choices do not match.')
+
+    # Handle invalid column names
+    cleaned_columns = clean_column_names(df.columns)
+    cleaned_features = clean_column_names(features)
+    df.columns = cleaned_columns
+
+    # Debuggings
+    print(f'Original columns: {features}')
+    print(f'New columns: {cleaned_columns}')
 
     # Iterate over each column with its corresponding feature choices
-    for column, choices in zip(columns, feature_eng_choices):
+    for feature, choices in zip(cleaned_features, feature_eng_choices):
         # Use a temporary DataFrame slice to avoid SettingWithCopyWarning
-        column_data = df[[column]].copy()
+        column_data = df[[feature]].copy()
 
         if 'handle_missing' in choices:
-            df[column] = clean_data(df[column])
+            df[feature] = clean_data(df[feature])
             print('Missing values handled.')
 
         if 'normalize' in choices:
             scaler = MinMaxScaler()
             column_data = scaler.fit_transform(column_data)
-            df[column] = column_data  # Update the original DataFrame
+            df[feature] = column_data  # Update the original DataFrame
             print('Dataset normalized.')
 
         if 'standardize' in choices:
             scaler = StandardScaler()
             column_data = scaler.fit_transform(column_data)
-            df[column] = column_data  # Update the original DataFrame
+            df[feature] = column_data  # Update the original DataFrame
             print('Dataset standardized')
 
     return df
@@ -118,6 +127,18 @@ def clean_data(df):
     # Replace missing values with zero
     df.fillna(0, inplace=True)
     return df
+
+# Function to clean column names
+def clean_column_names(columns):
+    valid_columns = []
+    for col in columns:
+        # Replace invalid characters with underscores
+        valid_col = re.sub(r'[^a-zA-Z0-9_]', '_', col)
+        # Ensure the column name doesn't start with a digit
+        if re.match(r'^[0-9]', valid_col):
+            valid_col = '_' + valid_col
+        valid_columns.append(valid_col)
+    return valid_columns
 
 # Function that converts a dataset into a list of model instances
 def create_model_instances(dataset, db):
