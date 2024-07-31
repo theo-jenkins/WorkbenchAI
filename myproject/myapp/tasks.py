@@ -113,10 +113,11 @@ def clean_data(df):
     df.replace(-9999, 0, inplace=True)
     # Handle invalid date formats
     #df = format_dates(df)
+    # Convert all values to floats and set non-numeric values to NaN
+    df = df.apply(pd.to_numeric, errors='coerce')
     # Replace missing values with zero
     df.fillna(0, inplace=True)
     return df
-
 
 # Function that converts a dataset into a list of model instances
 def create_model_instances(dataset, db):

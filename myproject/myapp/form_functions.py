@@ -97,6 +97,8 @@ def process_build_model_form(form):
 
 # Function that returns all the user choices for the train model form
 def fetch_train_model_form_choices(form):
+    title = form.cleaned_data['model_title']
+    comment = form.cleaned_data['comment']
     features_id = form.cleaned_data['feature_dataset']
     outputs_id = form.cleaned_data['training_dataset']
     model_id = form.cleaned_data['model']
@@ -128,7 +130,7 @@ def fetch_train_model_form_choices(form):
     except Exception as e:
         print(f'Error loading keras model: {e}')
 
-    return features, outputs, model, batch_size, epochs, verbose, validation_split
+    return title, comment, features, outputs, model, batch_size, epochs, verbose, validation_split
 
 # Function to retrieve a table from the db and return as df
 def load_sqlite_table(db_path, table_name):

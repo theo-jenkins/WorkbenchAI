@@ -26,6 +26,8 @@
                         <td>{{ model.tag }}</td>
                         <td>
                             <a href="{% url 'view_model' model.id %}">View</a>
+                            <a href="{% url 'evaluate_model' model.id %}">Evaluate</a>
+
                             <a href="{% url 'delete_model' model.id %}">Delete</a>
                         </td>
                     </tr>

@@ -25,6 +25,11 @@ LOGIN_URL = 'login'
 # Media files
 MEDIA_ROOT = os.path.join(BASE_DIR, 'uploaded_files')
 MEDIA_URL = '/media/'
+# Figures directory
+FIGURES_ROOT = os.path.join(BASE_DIR, 'figures')
+FIGURES_URL = '/figures/'
+# Static files
+STATIC_URL = '/static/'
 # Celery settings
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'

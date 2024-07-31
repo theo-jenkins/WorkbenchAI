@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.http import HttpResponseForbidden
+from django.conf import settings
 from keras.models import load_model
 from contextlib import redirect_stdout
 from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, TrainModelForm, BuildModelForm
@@ -12,7 +13,7 @@ from .models import create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
 from .site_functions import upload_file, get_common_columns
 from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata
-from .model_functions import build_model, save_model
+from .model_functions import build_model, save_model, load_training_history, plot_metrics
 from .form_functions import fetch_process_data_form_choices, process_build_model_form, fetch_train_model_form_choices, populate_train_model_form
 
 # View for the users dashboard
@@ -126,17 +127,10 @@ def train_model_form(request):
         form = TrainModelForm(request.POST)
         populate_train_model_form(form)
         if form.is_valid():
-            features, outputs, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
-            print(f'Features shape: {features.shape}')
+            title, comment, features, outputs, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
             history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
-            print(f'modl summary: {model.summary()}, features: {features.shape}')
-            
-
-            title = form.cleaned_data['model_title']
-            comment = form.cleaned_data['comment']
             user = request.user
-            save_model(title, model, 'trained', user, comment)
-            print('model trained succesfully')
+            save_model(title, model, history, 'trained', user, comment)
 
             return redirect('home')
     else:
@@ -173,7 +167,8 @@ def delete_dataset(request, dataset_id):
     if request.method == 'POST':
         try:
             # Connect to the SQLite database
-            conn = sqlite3.connect(dataset_metadata.file_path)
+            #conn = sqlite3.connect(dataset_metadata.file_path)
+            conn = sqlite3.connect(get_db_file_path())
             cursor = conn.cursor()
             # Drop the table
             cursor.execute(f'DROP TABLE IF EXISTS "{dataset_metadata.title}"')
@@ -248,3 +243,29 @@ def delete_model(request, model_id):
             print(f'Error deleting model: {e}')
             return HttpResponseForbidden('An error occured while deleting the model.')
     return render(request, 'confirm_model_delete.html', {'model': model_metadata})
+
+# View the models training history, loss and accuracy
+def evaluate_model(request, model_id):
+    model_metadata = get_object_or_404(Metadata, id=model_id)
+    if model_metadata.user != request.user:
+        return HttpResponseForbidden
+    
+    # Path to the figure file
+    fig_dir = os.path.join(settings.FIGURES_ROOT, model_metadata.title)
+    fig_path = os.path.join(fig_dir, 'metrics.png')
+
+    # Check if the figure already exists
+    if not os.path.exists(fig_path):
+        os.makedirs(fig_dir)
+        history = load_training_history(model_metadata.title)
+        fig_path = plot_metrics(history, fig_path)
+        print(f'Figure created at: {fig_path}')
+    else:
+        print(f'Figure already exists at: {fig_path}')
+
+    # Creates the url for the figure
+    fig_url = os.path.join(settings.FIGURES_URL, model_metadata.title, 'metrics.png')
+
+    return render(request, 'evaluate_model.html', {'fig_url': fig_url})
+
+
