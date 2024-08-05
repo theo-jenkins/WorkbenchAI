@@ -4,6 +4,7 @@
 {% block header %}Home{% endblock %}
 
 {% block content %}
+        <p> {{ message }}</p>
     {% if user.is_authenticated %}
         <p>Hello, {{ user.username }}!</p>
         <p>This is your dashboard</p>
@@ -15,9 +16,5 @@
         <p><a href="{% url 'view_models' %}">View models</a></p>
     {% else %}
         <p>Please <a href="{% url 'login' %}">log in</a> or <a href="{% url 'signup' %}">sign up</a> to access more features.</p>
-    {% endif %}
-
-    {% if result %}
-        <p>{{ result.result }} {{ result.task_id }}</p>
     {% endif %}
 {% endblock %}

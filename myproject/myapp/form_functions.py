@@ -141,27 +141,3 @@ def load_sqlite_table(db_path, table_name):
     df = df.iloc[:, 1:]
     conn.close()
     return df
-
-# Function that populates the train model form choices
-def populate_train_model_form(form):
-    # Query for datasets tagged as 'features' or 'outputs'
-    feature_datasets = Metadata.objects.filter(tag='features')
-    training_datasets = Metadata.objects.filter(tag='outputs')
-    
-    # Query for models tagged as 'untrained'
-    untrained_models = Metadata.objects.filter(tag='untrained')
-
-    # Prepare choices as tuples (id, title)
-    feature_choices = [(dataset.id, dataset.title) for dataset in feature_datasets]
-    training_choices = [(dataset.id, dataset.title) for dataset in training_datasets]
-    model_choices = [(model.id, model.title) for model in untrained_models]
-
-    form.fields['feature_dataset'].choices = feature_choices
-    form.fields['training_dataset'].choices = training_choices
-    form.fields['model'].choices = model_choices
-    form.fields['verbose'].choices = [
-        (0, '0'),
-        (1, '1'),
-        (2, '2')
-    ]
-    return form

@@ -1,6 +1,7 @@
 import sqlite3
 import io
 import os
+import shutil
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
@@ -11,14 +12,18 @@ from contextlib import redirect_stdout
 from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, TrainModelForm, BuildModelForm
 from .models import create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
-from .site_functions import upload_file, get_common_columns
+from .site_functions import get_latest_commit_info, upload_file, get_common_columns
 from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata
 from .model_functions import build_model, save_model, load_training_history, plot_metrics
-from .form_functions import fetch_process_data_form_choices, process_build_model_form, fetch_train_model_form_choices, populate_train_model_form
+from .form_functions import fetch_process_data_form_choices, process_build_model_form, fetch_train_model_form_choices
 
 # View for the users dashboard
 def home(request):
-    return render(request, 'home.html')
+    message = get_latest_commit_info()
+    context = {
+        'message': message
+    }    
+    return render(request, 'home.html', context)
 
 # View for the signup page
 def signup(request):
@@ -70,15 +75,15 @@ def process_data_form(request):
             # Attempts to create the dataset, create a db, and save dataset to db
             dataset = create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices)
             db = create_custom_db(title, dataset)
-            dataset_saved = create_model_instances(dataset, db)
+            dataset_saved = create_model_instances(dataset, db) # Converts the dataframe to model instances, then commits to db
 
             # Handles dataset saved successfully
             if dataset_saved:
                 user = request.user
                 file_path = get_db_file_path()
-                metadata = save_metadata(title, comment, user, file_path, dataset_type)
-                db_data, features = fetch_sample_dataset(db, 50)
-                return render(request, 'sample_dataset.html', {'title': title, 'db_data': db_data, 'features': features})
+                save_metadata(title, comment, user, file_path, dataset_type)
+                data, features = fetch_sample_dataset(title, 50)
+                return render(request, 'sample_dataset.html', {'title': title, 'data': data, 'features': features})
             else:
                 print(f'dataset not saved:')
         else:
@@ -125,17 +130,16 @@ def build_model_form(request):
 def train_model_form(request):
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
-        populate_train_model_form(form)
         if form.is_valid():
             title, comment, features, outputs, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
             history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
             user = request.user
             save_model(title, model, history, 'trained', user, comment)
+            fig_url = plot_metrics(title, history.history)
 
-            return redirect('home')
+            return render(request, 'evaluate_model.html', {'fig_url': fig_url})
     else:
         form = TrainModelForm()
-        populate_train_model_form(form)
 
     return render(request, 'train_model_form.html', {'form': form})
 
@@ -153,11 +157,14 @@ def view_datasets(request):
 
 # View an individual dataset
 def view_dataset(request, dataset_id):
-    dataset = get_object_or_404(Metadata, id=dataset_id)
-    if dataset.user != request.user:
+    dataset_metadata = get_object_or_404(Metadata, id=dataset_id)
+    if dataset_metadata.user != request.user:
         return HttpResponseForbidden
-    data, columns = fetch_sample_dataset(dataset, 50)
-    return render('sample_dataset.html', {'data': data, 'columns': columns})
+    
+    sample_size = 50
+    title = dataset_metadata.title
+    data, features = fetch_sample_dataset(title, sample_size)
+    return render(request, 'sample_dataset.html', {'title': title, 'data': data, 'features': features})
 
 # View to handle the delete dataset logic
 def delete_dataset(request, dataset_id):
@@ -171,7 +178,8 @@ def delete_dataset(request, dataset_id):
             conn = sqlite3.connect(get_db_file_path())
             cursor = conn.cursor()
             # Drop the table
-            cursor.execute(f'DROP TABLE IF EXISTS "myapp_{dataset_metadata.title}"')
+            table_name = f'myapp_{dataset_metadata.title}'
+            cursor.execute(f'DROP TABLE IF EXISTS {table_name}"')
             conn.commit()
             conn.close()
             
@@ -231,13 +239,29 @@ def delete_model(request, model_id):
     model_metadata = get_object_or_404(Metadata, id=model_id)
     if model_metadata.user != request.user:
         return HttpResponseForbidden
+    
+    tag = model_metadata.tag
+    title = model_metadata.title
+    model_file_path = os.path.join(settings.MODEL_ROOT, tag, title)
+    figures_dir_path = os.path.join(settings.FIGURES_ROOT, title)
+    
     if request.method == 'POST':
         try:
-            if os.path.exists(model_metadata.file_path):
-                os.remove(model_metadata.file_path)
+            # Remove model file if it exists
+            if os.path.exists(model_file_path):
+                shutil.rmtree(model_file_path)
             else:
-                print(f'File {model_metadata.file_path} does not exist.')
+                print(f'Model file {model_file_path} does not exist.')
+            
+            # Remove figures directory if it exists
+            if os.path.exists(figures_dir_path):
+                shutil.rmtree(figures_dir_path)
+            else:
+                print(f'Figures directory {figures_dir_path} does not exist.')
+            
+            # Delete model metadata from the database
             model_metadata.delete()
+
             return redirect('view_models')
         except Exception as e:
             print(f'Error deleting model: {e}')
@@ -246,25 +270,15 @@ def delete_model(request, model_id):
 
 # View the models training history, loss and accuracy
 def evaluate_model(request, model_id):
+    # Fetches the model metadata object
     model_metadata = get_object_or_404(Metadata, id=model_id)
     if model_metadata.user != request.user:
         return HttpResponseForbidden
     
-    # Path to the figure file
-    fig_dir = os.path.join(settings.FIGURES_ROOT, model_metadata.title)
-    fig_path = os.path.join(fig_dir, 'metrics.png')
-
-    # Check if the figure already exists
-    if not os.path.exists(fig_path):
-        os.makedirs(fig_dir)
-        history = load_training_history(model_metadata.title)
-        fig_path = plot_metrics(history, fig_path)
-        print(f'Figure created at: {fig_path}')
-    else:
-        print(f'Figure already exists at: {fig_path}')
-
-    # Creates the url for the figure
-    fig_url = os.path.join(settings.FIGURES_URL, model_metadata.title, 'metrics.png')
+    # Fetches the models history as a plot
+    model_title = model_metadata.title
+    history = load_training_history(model_title)
+    fig_url = plot_metrics(model_title, history)
 
     return render(request, 'evaluate_model.html', {'fig_url': fig_url})
 

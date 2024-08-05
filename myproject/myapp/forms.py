@@ -2,8 +2,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
-from .models import CustomUser
+from .models import CustomUser, Metadata
 from .site_functions import get_uploaded_files
+from .form_choices import FEATURE_ENG_CHOICES, DATASET_TYPE_CHOICES, MODEL_TYPE_CHOICES, LAYER_TYPE_CHOICES, ACTIVATION_TYPE_CHOICES, OPTIMIZER_CHOICES, LOSS_CHOICES, METRIC_CHOICES
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm):
@@ -52,44 +53,8 @@ class UploadFileForm(forms.Form):
     file_field = UploadFileField(
         validators=[validate_file_extensions, validate_file_size],
     )
-FEATURE_ENG_CHOICES = [
-    ('handle_missing', 'Handle missing values'),
-    ('normalize', 'Normalize'),
-    ('standardize', 'Standardize'),
-]
-DATASET_TYPES = [
-        ('features', 'Features (Input Data)'),
-        ('outputs', 'Targets (Output Data)')
-    ]
 
 class ProcessDataForm(forms.Form):
-    db_title = forms.CharField(
-        required=True,
-    )
-    comment = forms.CharField(
-        widget=forms.Textarea,
-        required=False,
-    )
-    dataset_type = forms.ChoiceField(
-        required=True,
-        choices=DATASET_TYPES,
-    )
-    files = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
-        required=True,
-    )
-    features = forms.IntegerField(
-        required=True,
-        initial=1,
-        min_value=1,
-    )
-    start_row = forms.IntegerField(
-        initial=0,
-    )
-    end_row = forms.IntegerField(
-        required=True,
-    )
-
     def __init__(self, *args, **kwargs):
         feature_count = kwargs.pop('feature_count', 1)
         common_columns = kwargs.pop('common_columns', [])
@@ -113,52 +78,62 @@ class ProcessDataForm(forms.Form):
     def get_file_choices():
         files = get_uploaded_files()
         return files
+    
+    db_title = forms.CharField(
+        required=True,
+    )
+    comment = forms.CharField(
+        widget=forms.Textarea,
+        required=False,
+    )
+    dataset_type = forms.ChoiceField(
+        required=True,
+        choices=DATASET_TYPE_CHOICES,
+    )
+    files = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+    )
+    features = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=1,
+    )
+    start_row = forms.IntegerField(
+        initial=0,
+    )
+    end_row = forms.IntegerField(
+        required=True,
+    )
 
+class SelectModelType(forms.Form):
+    model_type = forms.ChoiceField(
+        required=True,
+        choices=MODEL_TYPE_CHOICES,
+    )
 
-LAYER_TYPE_CHOICES = [
-    ('dense', 'Dense'),
-]
-ACTIVATION_CHOICES = [
-    ('relu', 'ReLU'),
-    ('sigmoid', 'Sigmoid'),
-    ('softmax', 'Softmax'),
-    ('softplus', 'Softplus'),
-    ('softsign', 'Softsign'),
-    ('tanh', 'Tanh'),
-    ('selu', 'SELU'),
-    ('elu', 'ELU'),
-    ('exponential', 'Exponential'),
-    ('hard_sigmoid', 'Hard Sigmoid'),
-    ('linear', 'Linear'),
-    ('swish', 'Swish'),
-    ('gelu', 'GELU')
-]
-OPTIMIZER_CHOICES = [
-        ('adam', 'Adam'),
-        ('sgd', 'SGD'),
-        ('rmsprop', 'RMSprop'),
-        ('adagrad', 'Adagrad'),
-        ('adadelta', 'Adadelta'),
-        ('adamax', 'Adamax'),
-        ('nadam', 'Nadam')
-]
-LOSS_CHOICES = [
-        ('categorical_crossentropy', 'Categorical Cross-Entropy'),
-        ('binary_crossentropy', 'Binary Cross-Entropy'),
-        ('mean_squared_error', 'Mean Squared Error'),
-        ('mean_absolute_error', 'Mean Absolute Error'),
-        ('hinge', 'Hinge Loss'),
-        ('sparse_categorical_crossentropy', 'Sparse Categorical Cross-Entropy'),
-]
-METRIC_CHOICES = [
-        ('accuracy', 'Accuracy'),
-        ('precision', 'Precision'),
-        ('recall', 'Recall'),
-        ('f1_score', 'F1 Score'),
-        ('mean_squared_error', 'Mean Squared Error'),
-        ('mean_absolute_error', 'Mean Absolute Error')
-    ]
 class BuildModelForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        hidden_layer_count = kwargs.pop('hidden_layer_count', 1)
+        super(BuildModelForm, self).__init__(*args, **kwargs)
+        for i in range(hidden_layer_count):
+            self.fields[f'nodes_{i}'] = forms.IntegerField(
+                label=f'Nodes {i+1}',
+                required=True,
+                min_value=1,
+                initial=32,
+            )
+            self.fields[f'layer_type_{i}'] = forms.ChoiceField(
+                label=f'Hidden Layer Type {i+1}',
+                choices=LAYER_TYPE_CHOICES,
+                required=True,
+            )
+            self.fields[f'activation_{i}'] = forms.ChoiceField(
+                label=f'Activation Type {i+1}',
+                choices=ACTIVATION_TYPE_CHOICES,
+                required=True,
+            )
+
     model_title = forms.CharField(
         required=True,
         label='Model Title',
@@ -180,7 +155,7 @@ class BuildModelForm(forms.Form):
         label='Layer Type'
     )
     feature_activation = forms.ChoiceField(
-        choices=ACTIVATION_CHOICES,
+        choices=ACTIVATION_TYPE_CHOICES,
         required=True,
         label='Activation Function'
     )
@@ -196,7 +171,7 @@ class BuildModelForm(forms.Form):
         label='Layer Type'
     )
     output_activation = forms.ChoiceField(
-        choices=ACTIVATION_CHOICES,
+        choices=ACTIVATION_TYPE_CHOICES,
         required=True,
         label='Activation Function'
     )
@@ -205,30 +180,7 @@ class BuildModelForm(forms.Form):
         initial=1,
         min_value=0,
         label='Hidden Layers',
-    )
-
-    def __init__(self, *args, **kwargs):
-        hidden_layer_count = kwargs.pop('hidden_layer_count', 1)
-        super(BuildModelForm, self).__init__(*args, **kwargs)
-        for i in range(hidden_layer_count):
-            self.fields[f'nodes_{i}'] = forms.IntegerField(
-                label=f'Nodes {i+1}',
-                required=True,
-                min_value=1,
-                initial=32,
-            )
-            self.fields[f'layer_type_{i}'] = forms.ChoiceField(
-                label=f'Hidden Layer Type {i+1}',
-                choices=LAYER_TYPE_CHOICES,
-                required=True,
-            )
-            self.fields[f'activation_{i}'] = forms.ChoiceField(
-                label=f'Activation Type {i+1}',
-                choices=ACTIVATION_CHOICES,
-                required=True,
-            )
-
-
+    )    
     optimizer = forms.ChoiceField(
         choices=OPTIMIZER_CHOICES,
         required=True,
@@ -247,6 +199,26 @@ class BuildModelForm(forms.Form):
     )
 
 class TrainModelForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        super(TrainModelForm, self).__init__(*args, **kwargs)
+
+        # Query for datasets tagged as 'features' or 'outputs'
+        feature_datasets = Metadata.objects.filter(tag='features')
+        training_datasets = Metadata.objects.filter(tag='outputs')
+        
+        # Query for models tagged as 'untrained'
+        untrained_models = Metadata.objects.filter(tag='untrained')
+
+        # Prepare choices as tuples (id, title)
+        feature_choices = [(dataset.id, dataset.title) for dataset in feature_datasets]
+        training_choices = [(dataset.id, dataset.title) for dataset in training_datasets]
+        model_choices = [(model.id, model.title) for model in untrained_models]
+
+        # Set the choices for the form fields
+        self.fields['feature_dataset'].choices = feature_choices
+        self.fields['training_dataset'].choices = training_choices
+        self.fields['model'].choices = model_choices
+
     model_title = forms.CharField(
         required=True,
         label='Model Title',
@@ -272,9 +244,10 @@ class TrainModelForm(forms.Form):
     epochs = forms.IntegerField(
         min_value=1,
         required=True,
-        initial=60,
+        initial=10,
     )
     verbose = forms.ChoiceField(
+        choices = [(0, '0'), (1, '1'), (2, '2')],
         required=True,
     )
     validation_split = forms.DecimalField(

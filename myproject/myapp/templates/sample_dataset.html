@@ -15,7 +15,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for row in db_data %}
+            {% for row in data %}
                 <tr>
                     {% for feature in features %}
                         <td style="border: 1px solid black;">{{ row|get_item:feature }}</td>

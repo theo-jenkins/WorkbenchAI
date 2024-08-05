@@ -67,10 +67,8 @@ def load_training_history(model_title):
     return history
 
 # Plotting function for a models metrics
-def plot_metrics(history, save_path):
+def plot_metrics(model_title, history):
     metrics = [key for key in history.keys() if not key.startswith('val_')]
-    validation_metrics = [f'val_{metric}' for metric in metrics if f'val_{metric}' in history]
-
     num_metrics = len(metrics)
     fig, axes = plt.subplots(1, num_metrics, figsize=(6 * num_metrics, 5))
 
@@ -78,16 +76,25 @@ def plot_metrics(history, save_path):
         axes = [axes]
 
     for ax, metric in zip(axes, metrics):
-        ax.plot(history[metric])
-        if f'val_{metric}' in history:
-            ax.plot(history[f'val_{metric}'])
+        ax.plot(history[metric], label='Train')
+        val_metric = f'val_{metric}'
+        if val_metric in history:
+            ax.plot(history[val_metric], label='Validation')
         ax.set_title(f'Model {metric}')
         ax.set_xlabel('Epoch')
         ax.set_ylabel(metric.capitalize())
-        ax.legend(['Train', 'Validation'] if f'val_{metric}' in history else ['Train'], loc='upper left')
+        ax.legend(loc='upper left')
+
+    # Ensure the directory exists
+    fig_dir = os.path.join(settings.FIGURES_ROOT, model_title)
+    os.makedirs(fig_dir, exist_ok=True)
+
+    # Path to the figure file
+    fig_path = os.path.join(fig_dir, 'metrics.png')
+    fig_url = os.path.join(settings.FIGURES_URL, model_title, 'metrics.png')
 
     # Save the figure
-    fig.savefig(save_path)
+    fig.savefig(fig_path)
     plt.close(fig)  # Close the figure to free memory
 
-    return save_path
+    return fig_url

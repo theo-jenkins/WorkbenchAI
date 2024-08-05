@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, connection
 from django.conf import settings
 from django.utils import timezone
 from .models import Metadata
@@ -16,11 +16,24 @@ def get_db_file_path():
     return db_path
 
 # Function that fetches a sample of the chosen dataset
-def fetch_sample_dataset(db, sample_size):
-    db_data = db.objects.all().values()[:sample_size]  # Get the first 50 rows
-    columns = db_data[0].keys() if db_data else []  # Get column names
+def fetch_sample_dataset(title, sample_size):
+    try:
+        with connection.cursor() as cursor:
+            # Ensure proper table name formatting to prevent SQL injection
+            table_name = f'myapp_{title}'
+            cursor.execute(f'SELECT * FROM {table_name} LIMIT %s', [sample_size])
+            rows = cursor.fetchmany(sample_size)  # Fetch up to sample_size rows
 
-    return db_data, columns
+            # Fetch column names
+            columns = [col[0] for col in cursor.description]
+
+            # Convert rows to list of dictionaries
+            data = [dict(zip(columns, row)) for row in rows]
+
+            return data, columns
+    except Exception as e:
+        print(f'An error occurred: {e}')
+        return None, None
 
 # Function that saves the metadata of a dataset or model
 def save_metadata(title, comment, user, file_path, tag):

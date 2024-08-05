@@ -22,9 +22,12 @@ AUTH_USER_MODEL = 'myapp.CustomUser'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
-# Media files
-MEDIA_ROOT = os.path.join(BASE_DIR, 'uploaded_files')
-MEDIA_URL = '/media/'
+# User uploaded files
+USER_ROOT = os.path.join(BASE_DIR, 'uploaded_files')
+USER_URL = '/user/'
+# Keras model directory
+MODEL_ROOT = os.path.join(BASE_DIR, 'nn_models')
+MODEL_URL = '/models/'
 # Figures directory
 FIGURES_ROOT = os.path.join(BASE_DIR, 'figures')
 FIGURES_URL = '/figures/'

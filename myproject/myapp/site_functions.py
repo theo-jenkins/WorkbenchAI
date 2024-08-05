@@ -1,8 +1,25 @@
 import os
 import zipfile
+import subprocess
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ValidationError
+
+# Function that retrieves the latest git commit information
+def get_latest_commit_info():
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--date=format:'%a %b %d'", "--format=%s:%cd"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        commit_info = result.stdout.strip()
+        message = (f'Latest commit: {commit_info}')
+        return message
+    except subprocess.CalledProcessError as e:
+        print(f'Error while fetching commit info: {e}')
+        return None
 
 # Function that validates and saves the file to upload_dir and deletes the .zip if applicable
 def upload_file(file):
@@ -13,7 +30,7 @@ def upload_file(file):
     
     try:
         # Ensure the uploaded_files directory exists
-        upload_dir = os.path.join(settings.MEDIA_ROOT)
+        upload_dir = os.path.join(settings.USER_ROOT)
         os.makedirs(upload_dir, exist_ok=True)
         
         # Save the uploaded file to the directory
@@ -37,7 +54,7 @@ def upload_file(file):
 # Function that fetches the file names in the /uploaded_files folder
 # Returns a list of tuples
 def get_uploaded_files():
-    upload_dir = os.path.join(settings.MEDIA_ROOT)
+    upload_dir = os.path.join(settings.USER_ROOT)
     if not os.path.exists(upload_dir):
         return []
     
@@ -51,7 +68,7 @@ def get_uploaded_files():
 # Function that finds the common columns between .csv files selected
 # Returns list of common columns
 def get_common_columns(file_paths):
-    upload_dir = settings.MEDIA_ROOT
+    upload_dir = settings.USER_ROOT
     common_columns = None
     for file_path in file_paths:
         full_path = os.path.join(upload_dir, file_path)
@@ -71,7 +88,7 @@ def get_common_columns(file_paths):
 # Function finds the maximum rows in the .csv files selected
 # Returns a integer for end_rows
 def get_max_rows(file_paths):
-    upload_dir = settings.MEDIA_ROOT
+    upload_dir = settings.USER_ROOT
     full_paths = []
 
     # Traverse the directory to find all files
