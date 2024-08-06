@@ -9,7 +9,7 @@ from django.http import HttpResponseForbidden
 from django.conf import settings
 from keras.models import load_model
 from contextlib import redirect_stdout
-from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, TrainModelForm, BuildModelForm
+from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, SelectModelForm, TrainModelForm
 from .models import create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
 from .site_functions import get_latest_commit_info, upload_file, get_common_columns
@@ -38,7 +38,7 @@ def signup(request):
             return redirect('home')
     else:
         form = CustomUserCreationForm()
-    return render(request, 'registration/signup.html', {'form': form})
+    return render(request, 'authentication/signup.html', {'form': form})
 
 # View that handles the upload_data logic
 # Functions: upload_file()
@@ -52,11 +52,11 @@ def upload_data_form(request):
                     upload_file(file)
                 except ValidationError as e:
                     form.add_error('file_field', e)
-                    return render(request, 'upload_data_form.html', {'form': form})
+                    return render(request, 'datasets/upload_data_form.html', {'form': form})
             return redirect('home')
     else:
         form = UploadFileForm()
-    return render(request, 'upload_data_form.html', {'form': form})
+    return render(request, 'datasets/upload_data_form.html', {'form': form})
 
 # View that handles the process_data form
 # Functions: populate_process_data_form(), get_common_columns(), fetch_process_data_form_choices(), create_custom_dataset(), create_custom_db(), create_model_instances(), get_db_file_path(), fetch_sample_dataset)_, populate_process_data_form()
@@ -83,7 +83,7 @@ def process_data_form(request):
                 file_path = get_db_file_path()
                 save_metadata(title, comment, user, file_path, dataset_type)
                 data, features = fetch_sample_dataset(title, 50)
-                return render(request, 'sample_dataset.html', {'title': title, 'data': data, 'features': features})
+                return render(request, 'datasets/sample_dataset.html', {'title': title, 'data': data, 'features': features})
             else:
                 print(f'dataset not saved:')
         else:
@@ -100,7 +100,11 @@ def process_data_form(request):
         'form': form,
         'feature_count': feature_count_range
     }
-    return render(request, 'process_data_form.html', context)
+    return render(request, 'datasets/process_data_form.html', context)
+
+def select_model_form(request):
+    form = SelectModelForm()
+    return render(request, 'models/select_model_form.html', {'form': form})
 
 # View that handles the logic for the build_model form
 # Functions: fetch_build_model_form_choices(), build_model()
@@ -122,7 +126,7 @@ def build_model_form(request):
         form = BuildModelForm(hidden_layer_count=hidden_layer_count)
 
     layer_count_range = range(hidden_layer_count)
-    return render(request, 'build_model_form.html', {'form': form, 'layer_count_range': layer_count_range})
+    return render(request, 'models/build_model_form.html', {'form': form, 'layer_count_range': layer_count_range})
 
 
 # View that handles the train_model form
@@ -137,11 +141,11 @@ def train_model_form(request):
             save_model(title, model, history, 'trained', user, comment)
             fig_url = plot_metrics(title, history.history)
 
-            return render(request, 'evaluate_model.html', {'fig_url': fig_url})
+            return render(request, 'models/evaluate_model.html', {'fig_url': fig_url})
     else:
         form = TrainModelForm()
 
-    return render(request, 'train_model_form.html', {'form': form})
+    return render(request, 'models/train_model_form.html', {'form': form})
 
 # View the feature and output datasets created by the signed in user
 def view_datasets(request):
@@ -153,7 +157,7 @@ def view_datasets(request):
         'datasets': user_datasets
     }
 
-    return render(request, 'view_datasets.html', context)
+    return render(request, 'datasets/view_datasets.html', context)
 
 # View an individual dataset
 def view_dataset(request, dataset_id):
@@ -164,7 +168,7 @@ def view_dataset(request, dataset_id):
     sample_size = 50
     title = dataset_metadata.title
     data, features = fetch_sample_dataset(title, sample_size)
-    return render(request, 'sample_dataset.html', {'title': title, 'data': data, 'features': features})
+    return render(request, 'datasets/sample_dataset.html', {'title': title, 'data': data, 'features': features})
 
 # View to handle the delete dataset logic
 def delete_dataset(request, dataset_id):
@@ -190,7 +194,7 @@ def delete_dataset(request, dataset_id):
             print(f"Error deleting table: {e}")
             return HttpResponseForbidden("An error occurred while deleting the dataset.")
 
-    return render(request, 'confirm_dataset_delete.html', {'dataset': dataset_metadata})
+    return render(request, 'datasets/confirm_dataset_delete.html', {'dataset': dataset_metadata})
 
 # View the trained and untrained models created by the signed in user
 def view_models(request):
@@ -201,7 +205,7 @@ def view_models(request):
     context = {
         'models': user_models
     }
-    return render(request, 'view_models.html', context)
+    return render(request, 'models/view_models.html', context)
 
 # View the metrics of a model
 def view_model(request, model_id):
@@ -232,7 +236,7 @@ def view_model(request, model_id):
         'model_layers': model_layers,
     }
     
-    return render(request, 'view_model_summary.html', context)
+    return render(request, 'models/view_model_summary.html', context)
 
 # View to handle the delete model logic
 def delete_model(request, model_id):
@@ -266,7 +270,7 @@ def delete_model(request, model_id):
         except Exception as e:
             print(f'Error deleting model: {e}')
             return HttpResponseForbidden('An error occured while deleting the model.')
-    return render(request, 'confirm_model_delete.html', {'model': model_metadata})
+    return render(request, 'models/confirm_model_delete.html', {'model': model_metadata})
 
 # View the models training history, loss and accuracy
 def evaluate_model(request, model_id):
@@ -280,6 +284,6 @@ def evaluate_model(request, model_id):
     history = load_training_history(model_title)
     fig_url = plot_metrics(model_title, history)
 
-    return render(request, 'evaluate_model.html', {'fig_url': fig_url})
+    return render(request, 'models/evaluate_model.html', {'fig_url': fig_url})
 
 

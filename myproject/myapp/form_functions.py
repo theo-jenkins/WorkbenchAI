@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.template.loader import render_to_string
 from keras.models import load_model
 import pandas as pd
-from .forms import ProcessDataForm, BuildModelForm
+from .forms import ProcessDataForm, BuildModelForm, BuildSequentialForm
 from .models import Metadata
 from .site_functions import get_max_rows, get_common_columns, get_uploaded_files
 
@@ -51,6 +51,30 @@ def fetch_process_data_form_choices(form):
 
 ####################################################################
 
+# Function that handles the select model type form update
+def update_select_model_form(request):
+    model_type = request.POST.get('model_type')
+    if model_type == 'sequential':
+        form = BuildSequentialForm(hidden_layer_count=1)
+        form_html = render_to_string('models/build_sequential_model_form.html', {'form': form}, request=request)
+    elif model_type == 'xgboost':
+        form_html = render_to_string('models/build_xgboost_model_form.html', {}, request=request)
+    else:
+        form_html = ''
+
+    return JsonResponse({'model_form_html': form_html})
+
+def update_sequential_model_form(request):
+    hidden_layer_count = int(request.POST.get('hidden_layers', 1))
+    print(f'Hidden_layer: {hidden_layer_count}')
+    form = BuildSequentialForm(hidden_layer_count=hidden_layer_count)
+    context = {
+        'form': form,
+        'range': range(hidden_layer_count)
+    }
+    hidden_layer_html = render_to_string('partials/hidden_layer_form.html', context)
+    return JsonResponse({'hidden_layer_html': hidden_layer_html})
+
 # Function that handles the dynamic update for the build model form
 def update_build_model_form(request):
     if request.method =='POST':
@@ -60,7 +84,7 @@ def update_build_model_form(request):
             'form': form,
             'range': range(hidden_layer_count)
         }
-        layer_html = render_to_string('layer_fields.html', context)
+        layer_html = render_to_string('partials/layer_fields.html', context)
         return JsonResponse({'layer_html': layer_html})
     return JsonResponse({'error': 'Invalid request'}, status=400)
 

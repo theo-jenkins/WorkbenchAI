@@ -9,10 +9,12 @@ DATASET_TYPE_CHOICES = [
 ]
 MODEL_TYPE_CHOICES = [
     ('sequential', 'Sequential'),
-    ('LSTM', 'LSTM'),
+    ('xgboost', 'XGBoost'),
 ]
 LAYER_TYPE_CHOICES = [
-    ('dense', 'Dense'),
+    ('dense', 'Dense (Fully Connected)'),
+    ('LSTM', 'LSTM (Long Short-Term Memory)'),
+    ('GRU', 'GRU (Gated Recurrent Unit)')
 ]
 ACTIVATION_TYPE_CHOICES = [
     ('relu', 'ReLU'),
@@ -30,27 +32,27 @@ ACTIVATION_TYPE_CHOICES = [
     ('gelu', 'GELU')
 ]
 OPTIMIZER_CHOICES = [
-        ('adam', 'Adam'),
-        ('sgd', 'SGD'),
-        ('rmsprop', 'RMSprop'),
-        ('adagrad', 'Adagrad'),
-        ('adadelta', 'Adadelta'),
-        ('adamax', 'Adamax'),
-        ('nadam', 'Nadam')
+    ('adam', 'Adam'),
+    ('sgd', 'SGD'),
+    ('rmsprop', 'RMSprop'),
+    ('adagrad', 'Adagrad'),
+    ('adadelta', 'Adadelta'),
+    ('adamax', 'Adamax'),
+    ('nadam', 'Nadam')
 ]
 LOSS_CHOICES = [
-        ('categorical_crossentropy', 'Categorical Cross-Entropy'),
-        ('binary_crossentropy', 'Binary Cross-Entropy'),
-        ('mean_squared_error', 'Mean Squared Error'),
-        ('mean_absolute_error', 'Mean Absolute Error'),
-        ('hinge', 'Hinge Loss'),
-        ('sparse_categorical_crossentropy', 'Sparse Categorical Cross-Entropy'),
+    ('categorical_crossentropy', 'Categorical Cross-Entropy'),
+    ('binary_crossentropy', 'Binary Cross-Entropy'),
+    ('mean_squared_error', 'Mean Squared Error'),
+    ('mean_absolute_error', 'Mean Absolute Error'),
+    ('hinge', 'Hinge Loss'),
+    ('sparse_categorical_crossentropy', 'Sparse Categorical Cross-Entropy'),
 ]
 METRIC_CHOICES = [
-        ('accuracy', 'Accuracy'),
-        ('precision', 'Precision'),
-        ('recall', 'Recall'),
-        ('f1_score', 'F1 Score'),
-        ('mean_squared_error', 'Mean Squared Error'),
-        ('mean_absolute_error', 'Mean Absolute Error')
-    ]
+    ('accuracy', 'Accuracy'),
+    ('precision', 'Precision'),
+    ('recall', 'Recall'),
+    ('f1_score', 'F1 Score'),
+    ('mean_squared_error', 'Mean Squared Error'),
+    ('mean_absolute_error', 'Mean Absolute Error')
+]

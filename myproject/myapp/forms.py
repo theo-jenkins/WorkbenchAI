@@ -106,10 +106,96 @@ class ProcessDataForm(forms.Form):
         required=True,
     )
 
-class SelectModelType(forms.Form):
+class SelectModelForm(forms.Form):
+    model_title = forms.CharField(
+        required=True,
+        label='Model Title',
+    )
+    comment = forms.CharField(
+        widget=forms.Textarea(),
+        required=False,
+        label='Comment',
+    )
     model_type = forms.ChoiceField(
         required=True,
         choices=MODEL_TYPE_CHOICES,
+        widget=forms.RadioSelect,
+    )
+    
+class BuildSequentialForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        hidden_layer_count = kwargs.pop('hidden_layer_count', 1)
+        super(BuildSequentialForm, self).__init__(*args, **kwargs)
+        for i in range(hidden_layer_count):
+            self.fields[f'nodes_{i}'] = forms.IntegerField(
+                label=f'Nodes {i+1}',
+                required=True,
+                min_value=1,
+                initial=32,
+            )
+            self.fields[f'layer_type_{i}'] = forms.ChoiceField(
+                label=f'Hidden Layer Type {i+1}',
+                choices=LAYER_TYPE_CHOICES,
+                required=True,
+            )
+            self.fields[f'activation_{i}'] = forms.ChoiceField(
+                label=f'Activation Type {i+1}',
+                choices=ACTIVATION_TYPE_CHOICES,
+                required=True,
+            )
+    features = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=1,
+        label='Features',
+    )
+    feature_layer_type = forms.ChoiceField(
+        choices=LAYER_TYPE_CHOICES,
+        required=True,
+        label='Layer Type'
+    )
+    feature_activation = forms.ChoiceField(
+        choices=ACTIVATION_TYPE_CHOICES,
+        required=True,
+        label='Activation Function'
+    )
+    outputs = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=1,
+        label='Outputs',
+    )
+    output_layer_type = forms.ChoiceField(
+        choices=LAYER_TYPE_CHOICES,
+        required=True,
+        label='Layer Type'
+    )
+    output_activation = forms.ChoiceField(
+        choices=ACTIVATION_TYPE_CHOICES,
+        required=True,
+        label='Activation Function'
+    )
+    hidden_layers = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=0,
+        label='Hidden Layers',
+    )    
+    optimizer = forms.ChoiceField(
+        choices=OPTIMIZER_CHOICES,
+        required=True,
+        label='Optimizer'
+    )
+    loss = forms.ChoiceField(
+        choices=LOSS_CHOICES,
+        required=True,
+        label='Loss Function'
+    )
+    metrics = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        choices=METRIC_CHOICES,
+        required=True,
+        label='Metrics'
     )
 
 class BuildModelForm(forms.Form):
