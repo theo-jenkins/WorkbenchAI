@@ -5,24 +5,34 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from django.conf import settings
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from .db_functions import save_metadata
+from tensorflow.keras.layers import Dense, LSTM, GRU
+from tensorflow.keras.optimizers import get as get_optimizer
+from .db_functions import save_metadata, calc_dataset_shape
+
 # Function that builds a keras neural network
-def build_model(title, user, comment, layer_types, nodes, activations, optimizer, loss, metrics):
+def build_sequential_model(title, user, comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics):
     model = Sequential()
 
     # Correctly initializing the input layer
     if layer_types[0] == 'dense':
         # Assuming nodes[0] is the size of the input feature set
-        model.add(Dense(nodes[0], input_shape=(nodes[0],), activation=activations[0]))
+        model.add(Dense(nodes[0], input_shape=input_shape, activation=activations[0]))
+    elif layer_types[0] == 'LSTM':
+        model.add(LSTM(nodes[0], input_shape=(None, input_shape[0]), activation=activations[0], return_sequences=(len(layer_types) > 1)))
+    elif layer_types[0] == 'GRU':
+        model.add(GRU(nodes[0], input_shape=(None, input_shape[0]), activation=activations[0], return_sequences=(len(layer_types) > 1)))
 
     # Adding subsequent layers
     for i in range(1, len(layer_types)):  # Start from 1 since 0 is already added
         if layer_types[i] == 'dense':
             model.add(Dense(nodes[i], activation=activations[i]))
+        elif layer_types[i] == 'LSTM':
+            model.add(LSTM(nodes[i], activation=activations[i], return_sequences=(i < len(layer_types) - 1)))
+        elif layer_types[i] == 'GRU':
+            model.add(GRU(nodes[i], activation=activations[i], return_sequences=(i < len(layer_types) - 1)))
 
     # Compile the model
-    model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    model.compile(optimizer=get_optimizer(optimizer), loss=loss, metrics=metrics)
 
     # Saves the model as a file
     history = None

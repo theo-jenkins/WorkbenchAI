@@ -1,7 +1,10 @@
+import sqlite3
+import pandas as pd
 from django.db import models, connection
 from django.conf import settings
 from django.utils import timezone
 from .models import Metadata
+
 # Function that gets the columns from the db of type float
 def get_float_columns(db):
     float_columns = []
@@ -47,3 +50,26 @@ def save_metadata(title, comment, user, file_path, tag):
         tag=tag,
     )
     return metadata
+
+# Function to retrieve a table from the db and return as df
+def load_sqlite_table(db_path, table_name):
+    conn = sqlite3.connect(db_path)
+    query = f'SELECT * FROM "myapp_{table_name}"'
+    df = pd.read_sql_query(query, conn)
+    # Drop the first column (ID column)
+    df = df.iloc[:, 1:]
+    conn.close()
+    return df
+
+# Function that calculates the input shape of a selected dataset
+def calc_dataset_shape(dataset_id):
+    try:
+        dataset_metadata = Metadata.objects.get(id=dataset_id)
+    except Metadata.DoesNotExist:
+        return None
+    
+    try:
+        dataset = load_sqlite_table(dataset_metadata.file_path, dataset_metadata.title)
+        return dataset.shape
+    except Exception as e:
+        print(f'Error loading SQLite tables: {e}')

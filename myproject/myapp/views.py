@@ -9,13 +9,13 @@ from django.http import HttpResponseForbidden
 from django.conf import settings
 from keras.models import load_model
 from contextlib import redirect_stdout
-from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, SelectModelForm, TrainModelForm
+from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, BuildSequentialForm, TrainModelForm
 from .models import create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
 from .site_functions import get_latest_commit_info, upload_file, get_common_columns
 from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata
-from .model_functions import build_model, save_model, load_training_history, plot_metrics
-from .form_functions import fetch_process_data_form_choices, process_build_model_form, fetch_train_model_form_choices
+from .model_functions import build_sequential_model, save_model, load_training_history, plot_metrics
+from .form_functions import fetch_process_data_form_choices, process_sequential_model_form, fetch_train_model_form_choices
 
 # View for the users dashboard
 def home(request):
@@ -102,32 +102,43 @@ def process_data_form(request):
     }
     return render(request, 'datasets/process_data_form.html', context)
 
-def select_model_form(request):
-    form = SelectModelForm()
-    return render(request, 'models/select_model_form.html', {'form': form})
-
-# View that handles the logic for the build_model form
-# Functions: fetch_build_model_form_choices(), build_model()
+# View that handles the logic for the build model form
+# Functions: fetch_build_model_form_choices(), build_sequential_model(), build_xgboost_model(), build_mamba_model()
 def build_model_form(request):
     if request.method == 'POST':
-        hidden_layer_count=int(request.POST.get('hidden_layers', 1))
-        form = BuildModelForm(request.POST, hidden_layer_count=hidden_layer_count)
-
-        if form.is_valid():
-            title, comment, nodes, layer_types, activations, optimizer, loss, metrics = process_build_model_form(form)
-            user = request.user
-            model = build_model(title, user, comment, layer_types, nodes, activations, optimizer, loss, metrics)
-            return redirect('home')
-        else:
-            print(f'form errors: {form.errors}')
-            
+        form = BuildModelForm(request.POST)
     else:
-        hidden_layer_count = 1
-        form = BuildModelForm(hidden_layer_count=hidden_layer_count)
+        form = BuildModelForm()
+    return render(request, 'models/build_model_form.html', {'form': form})
 
-    layer_count_range = range(hidden_layer_count)
-    return render(request, 'models/build_model_form.html', {'form': form, 'layer_count_range': layer_count_range})
-
+# Function that handles the build model form
+def handle_build_model_form(request):
+    if request.method == 'POST':
+        form= BuildModelForm(request.POST)
+        if form.is_valid():
+            model_title = form.cleaned_data['model_title']
+            comment = form.cleaned_data['comment']
+            model_type = form.cleaned_data['model_type']
+            dataset_id = form.cleaned_data['feature_dataset']
+            
+            if model_type == 'sequential':
+                seq_form = BuildSequentialForm(request.POST)
+                if seq_form.is_valid():
+                    input_shape, nodes, layer_types, activations, optimizer, loss, metrics = process_sequential_model_form(seq_form, dataset_id)
+                    user = request.user
+                    model = build_sequential_model(model_title, user, comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics)
+                    if model:
+                        model_metadata = Metadata.objects.get(title=model_title)
+                        return redirect(view_model(request, model_id=model_metadata.id))
+                else:
+                    print(f'Form not valid: {seq_form.errors}')
+        else:
+            # Handle form errors
+            print(f'Form not valid: {form.errors}')
+            return render(request, 'models/build_model_form.html', {'form': form})
+    else:
+        form = BuildModelForm()
+    return render(request, 'models/build_model_form.html', {'form': form})
 
 # View that handles the train_model form
 # Functions: fetch_train_model_form_choices(), populate_train_model_form()

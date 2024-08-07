@@ -5,7 +5,8 @@ from keras.models import load_model
 import pandas as pd
 from .forms import ProcessDataForm, BuildModelForm, BuildSequentialForm
 from .models import Metadata
-from .site_functions import get_max_rows, get_common_columns, get_uploaded_files
+from .site_functions import get_max_rows, get_common_columns
+from .db_functions import load_sqlite_table, calc_dataset_shape
 
 # Function that checks what files are selected and updates the form dynamically
 def update_process_data_form(request):
@@ -52,11 +53,12 @@ def fetch_process_data_form_choices(form):
 ####################################################################
 
 # Function that handles the select model type form update
-def update_select_model_form(request):
+def update_build_model_form(request):
     model_type = request.POST.get('model_type')
+
     if model_type == 'sequential':
-        form = BuildSequentialForm(hidden_layer_count=1)
-        form_html = render_to_string('models/build_sequential_model_form.html', {'form': form}, request=request)
+        seq_form = BuildSequentialForm(hidden_layer_count=1)
+        form_html = render_to_string('models/build_sequential_model_form.html', {'seq_form': seq_form}, request=request)
     elif model_type == 'xgboost':
         form_html = render_to_string('models/build_xgboost_model_form.html', {}, request=request)
     else:
@@ -64,9 +66,9 @@ def update_select_model_form(request):
 
     return JsonResponse({'model_form_html': form_html})
 
+
 def update_sequential_model_form(request):
     hidden_layer_count = int(request.POST.get('hidden_layers', 1))
-    print(f'Hidden_layer: {hidden_layer_count}')
     form = BuildSequentialForm(hidden_layer_count=hidden_layer_count)
     context = {
         'form': form,
@@ -75,26 +77,12 @@ def update_sequential_model_form(request):
     hidden_layer_html = render_to_string('partials/hidden_layer_form.html', context)
     return JsonResponse({'hidden_layer_html': hidden_layer_html})
 
-# Function that handles the dynamic update for the build model form
-def update_build_model_form(request):
-    if request.method =='POST':
-        hidden_layer_count = int(request.POST.get('hidden_layers', 1))
-        form = BuildModelForm(hidden_layer_count=hidden_layer_count)
-        context = {
-            'form': form,
-            'range': range(hidden_layer_count)
-        }
-        layer_html = render_to_string('partials/layer_fields.html', context)
-        return JsonResponse({'layer_html': layer_html})
-    return JsonResponse({'error': 'Invalid request'}, status=400)
-
-# Function that handles the user choices for the build model form
-def process_build_model_form(form):
-    title = form.cleaned_data['model_title']
-    comment = form.cleaned_data['comment']
-    features = form.cleaned_data['features']
-    feature_layer_type = form.cleaned_data['feature_layer_type']
-    feature_activation = form.cleaned_data['feature_activation']
+# Function that handles the user choices for the sequential model form
+def process_sequential_model_form(form, feature_dataset):
+    # Fetches the user choices from the form
+    input_nodes = form.cleaned_data['input_nodes']
+    input_layer_type = form.cleaned_data['input_layer_type']
+    input_activation = form.cleaned_data['input_activation']
     outputs = form.cleaned_data['outputs']
     output_layer_type = form.cleaned_data['output_layer_type']
     output_activation = form.cleaned_data['output_activation']
@@ -104,10 +92,12 @@ def process_build_model_form(form):
     hidden_layer_count = form.cleaned_data['hidden_layers']
 
     # Processes the form data into lists for the build_model() function
-    nodes = [features]
-    layer_types = [feature_layer_type]
-    activations = [feature_activation]
+    print(f'Form cleaned_data: {form.cleaned_data}')
+    nodes = [input_nodes]
+    layer_types = [input_layer_type]
+    activations = [input_activation]
     for i in range(hidden_layer_count):
+
         nodes.append(form.cleaned_data[f'nodes_{i}'])
         layer_types.append(form.cleaned_data[f'layer_type_{i}'])
         activations.append(form.cleaned_data[f'activation_{i}'])
@@ -115,7 +105,13 @@ def process_build_model_form(form):
     layer_types.append(output_layer_type)
     activations.append(output_activation)
 
-    return title, comment, nodes, layer_types, activations, optimizer, loss, metrics
+    # Calculates the number of features from the selected dataset
+    shape = calc_dataset_shape(feature_dataset)
+    if not shape:
+        raise ValueError(f'An error occured calculated the shape of the dataset: {feature_dataset}')
+    input_shape = (shape[1],)
+
+    return input_shape, nodes, layer_types, activations, optimizer, loss, metrics
 
 #########################################################################
 
@@ -156,12 +152,3 @@ def fetch_train_model_form_choices(form):
 
     return title, comment, features, outputs, model, batch_size, epochs, verbose, validation_split
 
-# Function to retrieve a table from the db and return as df
-def load_sqlite_table(db_path, table_name):
-    conn = sqlite3.connect(db_path)
-    query = f'SELECT * FROM "myapp_{table_name}"'
-    df = pd.read_sql_query(query, conn)
-    # Drop the first column (ID column)
-    df = df.iloc[:, 1:]
-    conn.close()
-    return df

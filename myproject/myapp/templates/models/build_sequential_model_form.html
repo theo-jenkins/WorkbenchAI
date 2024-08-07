@@ -1,30 +1,29 @@
-<form id="sequential-model-form" method="post">
+<div>
     {% csrf_token %}
 
-    <div><label for="{{ form.features.id_for_label }}">{{ form.features.label }}</label>{{ form.features }}
-    <label for="{{ form.feature_layer_type.id_for_label }}">{{ form.feature_layer_type.label }}</label>{{ form.feature_layer_type }}
-    <label for="{{ form.feature_activation.id_for_label }}">{{ form.feature_activation.label }}</label>{{ form.feature_activation }}</div>
+    <div><label for="{{ seq_form.input_nodes.id_for_label }}">{{ seq_form.input_nodes.label }}</label>{{ seq_form.input_nodes }}
+    <label for="{{ seq_form.input_layer_type.id_for_label }}">{{ seq_form.input_layer_type.label }}</label>{{ seq_form.input_layer_type }}
+    <label for="{{ seq_form.input_activation.id_for_label }}">{{ seq_form.input_activation.label }}</label>{{ seq_form.input_activation }}</div>
 
     <div>
-        <label for="{{ form.hidden_layers.id_for_label }}">{{ form.hidden_layers.label }}</label>
-        {{ form.hidden_layers }}
+        <label for="{{ seq_form.hidden_layers.id_for_label }}">{{ seq_form.hidden_layers.label }}</label>
+        {{ seq_form.hidden_layers }}
         <button type="button" id="increase-layers">+</button>
         <button type="button" id="decrease-layers">-</button>
     </div>
-    
+
     <div id="hidden-layer-container">
         {% include 'partials/hidden_layer_form.html' %}
     </div>
-    
-    <div><label for="{{ form.outputs.id_for_label }}">{{ form.outputs.label }}</label>{{ form.outputs }}
-    <label for="{{ form.output_layer_type.id_for_label }}">{{ form.output_layer_type.label }}</label>{{ form.output_layer_type }}
-    <label for="{{ form.output_activation.id_for_label }}">{{ form.output_activation.label }}</label>{{ form.output_activation }}</div>
 
-    <div><label for="{{ form.optimizer.id_for_label }}">{{ form.optimizer.label }}</label>{{ form.optimizer }}</div>
-    <div><label for="{{ form.loss.id_for_label }}">{{ form.loss.label }}</label>{{ form.loss }}</div>
-    <div><label for="{{ form.metrics.id_for_label }}">{{ form.metrics.label }}</label>{{ form.metrics }}</div>
-    
-</form>
+    <div><label for="{{ seq_form.outputs.id_for_label }}">{{ seq_form.outputs.label }}</label>{{ seq_form.outputs }}
+    <label for="{{ seq_form.output_layer_type.id_for_label }}">{{ seq_form.output_layer_type.label }}</label>{{ seq_form.output_layer_type }}
+    <label for="{{ seq_form.output_activation.id_for_label }}">{{ seq_form.output_activation.label }}</label>{{ seq_form.output_activation }}</div>
+
+    <div><label for="{{ seq_form.optimizer.id_for_label }}">{{ seq_form.optimizer.label }}</label>{{ seq_form.optimizer }}</div>
+    <div><label for="{{ seq_form.loss.id_for_label }}">{{ seq_form.loss.label }}</label>{{ seq_form.loss }}</div>
+    <div><label for="{{ seq_form.metrics.id_for_label }}">{{ seq_form.metrics.label }}</label>{{ seq_form.metrics }}</div>
+</div>
 
 <script type="text/javascript">
     $(document).ready(function() {

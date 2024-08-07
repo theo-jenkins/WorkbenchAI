@@ -5,72 +5,40 @@
 
 {% block content %}
     {% if user.is_authenticated %}
-        <form id="model-form" method="post" enctype="multipart/form-data" action="{% url 'build_model_form' %}">
+        <form id="model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_build_model_form' %}">
             {% csrf_token %}
             <div><label for="{{ form.model_title.id_for_label }}">{{ form.model_title.label }}</label>{{ form.model_title }}</div>
             <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+            <div><label for="{{ form.model_type.id_for_label }}">{{ form.model_type.label }}</label>{{ form.model_type }}</div>
+            <div><label for="{{ form.feature_dataset.id_for_label }}">{{ form.feature_dataset.label }}</label>{{ form.feature_dataset }}</div>
 
-            <div><label for="{{ form.features.id_for_label }}">{{ form.features.label }}</label>{{ form.features }}
-            <label for="{{ form.feature_layer_type.id_for_label }}">{{ form.feature_layer_type.label }}</label>{{ form.feature_layer_type }}
-            <label for="{{ form.feature_activation.id_for_label }}">{{ form.feature_activation.label }}</label>{{ form.feature_activation }}</div>
+            <div id="model-form-container"></div>
 
-            <div>
-                <label for="{{ form.hidden_layers.id_for_label }}">{{ form.hidden_layers.label }}</label>
-                {{ form.hidden_layers }}
-                <button type="button" id="increase-layers">+</button>
-                <button type="button" id="decrease-layers">-</button>
-            </div>
-            
-            <div id="layer-container">
-                {% include 'partials/layer_fields.html' %}
-            </div>
-            
-            <div><label for="{{ form.outputs.id_for_label }}">{{ form.outputs.label }}</label>{{ form.outputs }}
-            <label for="{{ form.output_layer_type.id_for_label }}">{{ form.output_layer_type.label }}</label>{{ form.output_layer_type }}
-            <label for="{{ form.output_activation.id_for_label }}">{{ form.output_activation.label }}</label>{{ form.output_activation }}</div>
-
-            <div><label for="{{ form.optimizer.id_for_label }}">{{ form.optimizer.label }}</label>{{ form.optimizer }}</div>
-            <div><label for="{{ form.loss.id_for_label }}">{{ form.loss.label }}</label>{{ form.loss }}</div>
-            <div><label for="{{ form.metrics.id_for_label }}">{{ form.metrics.label }}</label>{{ form.metrics }}</div>
-            
             <button type="submit">Build model</button>
         </form>
 
         <script type="text/javascript">
             $(document).ready(function() {
-                function updateLayers() {
-                    let hiddenLayers = parseInt($('#id_hidden_layers').val());  // Fetch the latest value
-        
+                $('input[name="model_type"]').change(function() {
+                    var modelType = $(this).val();
+                    var featureDataset = $('#id_feature_dataset').val();
                     $.ajax({
                         url: "{% url 'update_build_model_form' %}",
                         method: "POST",
                         data: {
-                            'hidden_layers': hiddenLayers,
+                            'model_type': modelType,
+                            'feature_dataset': featureDataset,
                             'csrfmiddlewaretoken': '{{ csrf_token }}'
                         },
                         success: function(data) {
-                            $('#layer-container').html(data.layer_html);
-                        },
+                            // Fills the container with the relevant model type html
+                            $('#model-form-container').html(data.model_form_html);
+                            // Evaluate the script within the inserted HTML
+                            $('#model-form-container').find('script').each(function(){
+                                $.globalEval(this.text || this.textContent || this.innerHTML || '');
+                            });
+                        }
                     });
-                }
-        
-                // Initial update call if necessary
-                updateLayers();
-        
-                $('#increase-layers').on('click', function() {
-                    let hiddenLayers = parseInt($('#id_hidden_layers').val());
-                    hiddenLayers += 1;
-                    $('#id_hidden_layers').val(hiddenLayers);
-                    updateLayers();
-                });
-        
-                $('#decrease-layers').on('click', function() {
-                    let hiddenLayers = parseInt($('#id_hidden_layers').val());
-                    if (hiddenLayers > 1) {
-                        hiddenLayers -= 1;
-                        $('#id_hidden_layers').val(hiddenLayers);
-                        updateLayers();
-                    }
                 });
             });
         </script>
