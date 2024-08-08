@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.http import HttpResponseForbidden
 from django.conf import settings
+from django.urls import reverse
 from keras.models import load_model
 from contextlib import redirect_stdout
 from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, BuildSequentialForm, TrainModelForm
@@ -114,7 +115,7 @@ def build_model_form(request):
 # Function that handles the build model form
 def handle_build_model_form(request):
     if request.method == 'POST':
-        form= BuildModelForm(request.POST)
+        form = BuildModelForm(request.POST)
         if form.is_valid():
             model_title = form.cleaned_data['model_title']
             comment = form.cleaned_data['comment']
@@ -122,14 +123,15 @@ def handle_build_model_form(request):
             dataset_id = form.cleaned_data['feature_dataset']
             
             if model_type == 'sequential':
-                seq_form = BuildSequentialForm(request.POST)
+                hidden_layer_count = int(request.POST.get('hidden_layers', 1))
+                seq_form = BuildSequentialForm(request.POST, hidden_layer_count=hidden_layer_count)
                 if seq_form.is_valid():
                     input_shape, nodes, layer_types, activations, optimizer, loss, metrics = process_sequential_model_form(seq_form, dataset_id)
                     user = request.user
                     model = build_sequential_model(model_title, user, comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics)
                     if model:
                         model_metadata = Metadata.objects.get(title=model_title)
-                        return redirect(view_model(request, model_id=model_metadata.id))
+                        return redirect(reverse('view_model', kwargs={'model_id': model_metadata.id}))
                 else:
                     print(f'Form not valid: {seq_form.errors}')
         else:
@@ -189,12 +191,11 @@ def delete_dataset(request, dataset_id):
     if request.method == 'POST':
         try:
             # Connect to the SQLite database
-            #conn = sqlite3.connect(dataset_metadata.file_path)
-            conn = sqlite3.connect(get_db_file_path())
+            conn = sqlite3.connect(dataset_metadata.file_path)
             cursor = conn.cursor()
             # Drop the table
             table_name = f'myapp_{dataset_metadata.title}'
-            cursor.execute(f'DROP TABLE IF EXISTS {table_name}"')
+            cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
             conn.commit()
             conn.close()
             

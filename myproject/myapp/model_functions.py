@@ -4,23 +4,28 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from django.conf import settings
+from tensorflow.keras import Input
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM, GRU
 from tensorflow.keras.optimizers import get as get_optimizer
-from .db_functions import save_metadata, calc_dataset_shape
+from .db_functions import save_metadata
 
 # Function that builds a keras neural network
 def build_sequential_model(title, user, comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics):
+    # Defines our model type
     model = Sequential()
+
+    # Add an input layer
+    model.add(Input(shape=input_shape))
 
     # Correctly initializing the input layer
     if layer_types[0] == 'dense':
         # Assuming nodes[0] is the size of the input feature set
-        model.add(Dense(nodes[0], input_shape=input_shape, activation=activations[0]))
+        model.add(Dense(nodes[0], activation=activations[0]))
     elif layer_types[0] == 'LSTM':
-        model.add(LSTM(nodes[0], input_shape=(None, input_shape[0]), activation=activations[0], return_sequences=(len(layer_types) > 1)))
+        model.add(LSTM(nodes[0], activation=activations[0], return_sequences=(len(layer_types) > 1)))
     elif layer_types[0] == 'GRU':
-        model.add(GRU(nodes[0], input_shape=(None, input_shape[0]), activation=activations[0], return_sequences=(len(layer_types) > 1)))
+        model.add(GRU(nodes[0], activation=activations[0], return_sequences=(len(layer_types) > 1)))
 
     # Adding subsequent layers
     for i in range(1, len(layer_types)):  # Start from 1 since 0 is already added

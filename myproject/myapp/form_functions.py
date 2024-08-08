@@ -69,9 +69,9 @@ def update_build_model_form(request):
 
 def update_sequential_model_form(request):
     hidden_layer_count = int(request.POST.get('hidden_layers', 1))
-    form = BuildSequentialForm(hidden_layer_count=hidden_layer_count)
+    seq_form = BuildSequentialForm(hidden_layer_count=hidden_layer_count)
     context = {
-        'form': form,
+        'seq_form': seq_form,
         'range': range(hidden_layer_count)
     }
     hidden_layer_html = render_to_string('partials/hidden_layer_form.html', context)
@@ -92,12 +92,10 @@ def process_sequential_model_form(form, feature_dataset):
     hidden_layer_count = form.cleaned_data['hidden_layers']
 
     # Processes the form data into lists for the build_model() function
-    print(f'Form cleaned_data: {form.cleaned_data}')
     nodes = [input_nodes]
     layer_types = [input_layer_type]
     activations = [input_activation]
     for i in range(hidden_layer_count):
-
         nodes.append(form.cleaned_data[f'nodes_{i}'])
         layer_types.append(form.cleaned_data[f'layer_type_{i}'])
         activations.append(form.cleaned_data[f'activation_{i}'])
