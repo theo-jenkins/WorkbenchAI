@@ -12,7 +12,8 @@
                     <tr>
                         <th>Title</th>
                         <th>Comment</th>
-                        <th>Created at</th>
+                        <th>Created at</th>#
+                        <th>Form</th>
                         <th>Tag</th>
                         <th>Actions</th>
                     </tr>
@@ -23,6 +24,7 @@
                         <td>{{ dataset.title }}</td>
                         <td>{{ dataset.comment }}</td>
                         <td>{{ dataset.created_at }}</td>
+                        <td>{{ dataset.form }}</td>
                         <td>{{ dataset.tag }}</td>
                         <td>
                             <a href="{% url 'view_dataset' dataset.id %}">View</a>

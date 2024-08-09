@@ -3,9 +3,8 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import CustomUser, Metadata
-from .db_functions import calc_dataset_shape
 from .site_functions import get_uploaded_files
-from .form_choices import FEATURE_ENG_CHOICES, DATASET_TYPE_CHOICES, MODEL_TYPE_CHOICES, LAYER_TYPE_CHOICES, ACTIVATION_TYPE_CHOICES, OPTIMIZER_CHOICES, LOSS_CHOICES, METRIC_CHOICES
+from .form_choices import FEATURE_ENG_CHOICES, DATASET_FORM_CHOICES, DATASET_TYPE_CHOICES, AGGREGATION_FREQUENCY_CHOICES, MODEL_FORM_CHOICES, LAYER_TYPE_CHOICES, ACTIVATION_TYPE_CHOICES, OPTIMIZER_CHOICES, LOSS_CHOICES, METRIC_CHOICES
 
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm):
@@ -56,10 +55,29 @@ class UploadFileForm(forms.Form):
     )
 
 class ProcessDataForm(forms.Form):
+    db_title = forms.CharField(
+        required=True,
+    )
+    comment = forms.CharField(
+        widget=forms.Textarea,
+        required=False,
+    )
+    dataset_form = forms.ChoiceField(
+        required=True,
+        choices=DATASET_FORM_CHOICES,
+        widget=forms.RadioSelect,
+    )
+    dataset_type = forms.ChoiceField(
+        required=True,
+        choices=DATASET_TYPE_CHOICES,
+        widget=forms.RadioSelect,
+    )
+
+class ProcessTabularForm(forms.Form):
     def __init__(self, *args, **kwargs):
         feature_count = kwargs.pop('feature_count', 1)
         common_columns = kwargs.pop('common_columns', [])
-        super(ProcessDataForm, self).__init__(*args, **kwargs)
+        super(ProcessTabularForm, self).__init__(*args, **kwargs)
 
         self.fields['files'].choices = self.get_file_choices()
 
@@ -80,25 +98,9 @@ class ProcessDataForm(forms.Form):
         files = get_uploaded_files()
         return files
     
-    db_title = forms.CharField(
-        required=True,
-    )
-    comment = forms.CharField(
-        widget=forms.Textarea,
-        required=False,
-    )
-    dataset_type = forms.ChoiceField(
-        required=True,
-        choices=DATASET_TYPE_CHOICES,
-    )
     files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=True,
-    )
-    features = forms.IntegerField(
-        required=True,
-        initial=1,
-        min_value=1,
     )
     start_row = forms.IntegerField(
         initial=0,
@@ -106,6 +108,58 @@ class ProcessDataForm(forms.Form):
     end_row = forms.IntegerField(
         required=True,
     )
+    features = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=1,
+    )
+
+class ProcessTimeSeriesForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        feature_count = kwargs.pop('feature_count', 1)
+        common_columns = kwargs.pop('common_columns', [])
+        super(ProcessTimeSeriesForm, self).__init__(*args, **kwargs)
+
+        self.fields['files'].choices = self.get_file_choices()
+
+        for i in range(feature_count):
+            self.fields[f'column_{i}'] = forms.ChoiceField(
+                required=True,
+                label=f'Feature {i}',
+                choices=[(col, col) for col in common_columns],
+            )
+            self.fields[f'feature_eng_{i}'] = forms.MultipleChoiceField(
+                widget=forms.CheckboxSelectMultiple,
+                required=False,
+                choices=FEATURE_ENG_CHOICES,
+                label=f'Feature Engineering Options {i}',
+            )
+    @staticmethod
+    def get_file_choices():
+        files = get_uploaded_files()
+        return files
+    
+    aggregation_method = forms.ChoiceField(
+        required=True,
+        choices=AGGREGATION_FREQUENCY_CHOICES,
+        widget=forms.RadioSelect,
+    )
+    files = forms.MultipleChoiceField(
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+    )
+    start_row = forms.IntegerField(
+        initial=0,
+    )
+    end_row = forms.IntegerField(
+        required=True,
+    )
+    features = forms.IntegerField(
+        required=True,
+        initial=1,
+        min_value=1,
+    )
+
 
 class BuildModelForm(forms.Form):
     def __init__(self, *args, **kwargs):
@@ -129,9 +183,9 @@ class BuildModelForm(forms.Form):
         required=False,
         label='Comment',
     )
-    model_type = forms.ChoiceField(
+    model_form = forms.ChoiceField(
         required=True,
-        choices=MODEL_TYPE_CHOICES,
+        choices=MODEL_FORM_CHOICES,
         widget=forms.RadioSelect,
     )
     feature_dataset = forms.ChoiceField(

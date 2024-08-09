@@ -1,0 +1,68 @@
+<div>
+    {% csrf_token %}
+
+    <div><label for="{{ ts_form.aggregation_method.id_for_label }}">{{ ts_form.aggregation_method.label }}</label>{{ ts_form.aggregation_method }}</div>
+    <div><label for="{{ ts_form.files.id_for_label }}">{{ ts_form.files.label }}</label>{{ ts_form.files }}</div>
+
+    <div><label for="{{ ts_form.start_row.id_for_label }}">{{ ts_form.start_row.label }}</label>{{ ts_form.start_row }}</div>
+    <div><label for="end_row_input">{{ ts_form.end_row.label }}</label><input type="number" name="end_row" id="end_row_input" required></div>
+
+    <div>
+        <label for="{{ ts_form.features.id_for_label }}">{{ ts_form.features.label }}</label>{{ ts_form.features }}
+        <button type="button" id="increase-layers">+</button>
+        <button type="button" id="decrease-layers">-</button>
+    </div>        
+
+    <div id="feature-fields-container">
+        {% include 'partials/feature_fields.html' %}
+    </div>
+</div>
+<script type="text/javascript">
+    $(document).ready(function(){
+        function updateForm() {
+            var selectedFiles = $('input[name="files"]:checked').map(function(){
+                return $(this).val();
+            }).get();
+            var features = $('#id_features').val();
+            $.ajax({
+                url: "{% url 'update_ts_form' %}",
+                method: "POST",
+                data: {
+                    'files': selectedFiles,
+                    'features': features,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    $('#end_row_input').attr('max', data.max_rows).val(data.max_rows);
+                    $('#feature-fields-container').html(data.feature_fields_html);
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error: ", error);
+                }
+            });
+        }
+
+        $('#file-form').on('change', 'input[name="files"]', function() {
+            updateForm();
+        });
+
+        $('#increase-layers').off('click').on('click', function() {
+            let features = parseInt($('#id_features').val());
+            features += 1;
+            $('#id_features').val(features);
+            updateForm();
+        });
+
+        $('#decrease-layers').off('click').on('click', function() {
+            let features = parseInt($('#id_features').val());
+            if (features > 1) {
+                features -= 1;
+                $('#id_features').val(features);
+                updateForm();
+            }
+        });
+
+        // Initial call if needed
+        updateForm();
+    });
+</script>

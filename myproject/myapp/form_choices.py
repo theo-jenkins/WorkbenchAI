@@ -1,13 +1,26 @@
 FEATURE_ENG_CHOICES = [
+    ('date_col', 'Convert to datetime object'),
+    ('unique', 'Unique ID'),
     ('handle_missing', 'Handle missing values'),
     ('normalize', 'Normalize'),
     ('standardize', 'Standardize'),
+]
+DATASET_FORM_CHOICES = [
+    ('tabular', 'Tabular'),
+    ('ts', 'Timeseries')
 ]
 DATASET_TYPE_CHOICES = [
     ('features', 'Features (Input Data)'),
     ('outputs', 'Targets (Output Data)')
 ]
-MODEL_TYPE_CHOICES = [
+AGGREGATION_FREQUENCY_CHOICES = [
+    ('H', 'Hourly'),
+    ('D', 'Daily'),
+    ('W', 'Weekly'),
+    ('M', 'Monthly'),
+    ('Y', 'Yearly'),
+]
+MODEL_FORM_CHOICES = [
     ('sequential', 'Sequential'),
     ('xgboost', 'XGBoost'),
 ]

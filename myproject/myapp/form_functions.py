@@ -1,71 +1,126 @@
-import sqlite3
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from keras.models import load_model
-import pandas as pd
-from .forms import ProcessDataForm, BuildModelForm, BuildSequentialForm
+from .forms import ProcessTimeSeriesForm, ProcessTabularForm, BuildSequentialForm
 from .models import Metadata
 from .site_functions import get_max_rows, get_common_columns
 from .db_functions import load_sqlite_table, calc_dataset_shape
 
-# Function that checks what files are selected and updates the form dynamically
+
+# Function that updates the base process data form depending if timeseries or tabular is selected
 def update_process_data_form(request):
+    dataset_form = request.POST.get('dataset_form')
+    if dataset_form == 'ts':
+        ts_form = ProcessTimeSeriesForm(feature_count=1, common_columns=[])
+        form_html = render_to_string('datasets/process_ts_form.html', {'ts_form': ts_form}, request=request)
+    elif dataset_form == 'tabular':
+        tabular_form = ProcessTabularForm(feature_count=1, common_columns=[])
+        form_html = render_to_string('datasets/process_tabular_form.html', {'tabular_form': tabular_form}, request=request)
+    else:
+        form_html = ''
+    return JsonResponse({'process_dataset_form_html': form_html})
+
+# Function to update the timeseries dataset form
+def update_tabular_form(request):
     if request.method == 'POST':
         selected_files = request.POST.getlist('files[]')
         features = int(request.POST.get('features', 1))
         common_columns = get_common_columns(selected_files)
         max_rows = get_max_rows(selected_files)
-        form = ProcessDataForm(feature_count=features, common_columns=common_columns)       
-
+        ts_form = ProcessTabularForm(feature_count=features, common_columns=common_columns)
         context = {
-            'form': form,
+            'form': ts_form,
             'range': range(features)
         }
-        feature_fields_html = render_to_string('feature_fields.html', context)
+        feature_fields_html = render_to_string('partials/feature_fields.html', context)
 
         return JsonResponse({
-            'columns': common_columns,
-            'max_rows': max_rows,
-            'feature_fields_html': feature_fields_html
+                'columns': common_columns,
+                'max_rows': max_rows,
+                'feature_fields_html': feature_fields_html
         })
 
     return JsonResponse({'error': 'This endpoint only supports POST requests'}, status=400)
 
-# Fetches and returns all the user responses for the process_data form
+# Function to update the timeseries dataset form
+def update_ts_form(request):
+    if request.method == 'POST':
+        selected_files = request.POST.getlist('files[]')
+        features = int(request.POST.get('features', 1))
+        common_columns = get_common_columns(selected_files)
+        max_rows = get_max_rows(selected_files)
+        tabular_form = ProcessTimeSeriesForm(feature_count=features, common_columns=common_columns)
+        context = {
+            'form': tabular_form,
+            'range': range(features)
+        }
+        feature_fields_html = render_to_string('partials/feature_fields.html', context)
+
+        return JsonResponse({
+                'columns': common_columns,
+                'max_rows': max_rows,
+                'feature_fields_html': feature_fields_html
+        })
+
+    return JsonResponse({'error': 'This endpoint only supports POST requests'}, status=400)
+
+# Fetches and retuns the process data form user choices
 def fetch_process_data_form_choices(form):
-    file_paths = form.cleaned_data['files']
-    dataset_type = form.cleaned_data['dataset_type']
-    start_row = form.cleaned_data['start_row']
-    end_row = form.cleaned_data['end_row']
     title = form.cleaned_data['db_title']
     comment = form.cleaned_data['comment']
+    dataset_form = form.cleaned_data['dataset_form']
+    dataset_type = form.cleaned_data['dataset_type']
 
-    features_num = form.cleaned_data['features']
+    return title, comment, dataset_form, dataset_type
+
+# Fetches and retunrs the tabular dataset form user choices
+def fetch_tabular_form_choices(form):
+    file_paths = form.cleaned_data['files']
+    start_row = form.cleaned_data['start_row']
+    end_row = form.cleaned_data['end_row']
+    num_features = form.cleaned_data['features']
+    
     features = []
     feature_eng_choices = []
-    for i in range(features_num):
+    for i in range(num_features):
         features.append(form.cleaned_data[f'column_{i}'])
         feature_eng_choices.append(form.cleaned_data[f'feature_eng_{i}'])
 
-    return file_paths, dataset_type, start_row, end_row, features, feature_eng_choices, title, comment
+    return file_paths, start_row, end_row, features, feature_eng_choices
+
+# Fetches and returns the timeseries dataset form user choices
+def fetch_ts_form_choices(form):
+    aggregation_method = form.cleaned_data['aggregation_method']
+    file_paths = form.cleaned_data['files']
+    start_row = form.cleaned_data['start_row']
+    end_row = form.cleaned_data['end_row']
+    num_features = form.cleaned_data['features']
+    
+    features = []
+    feature_eng_choices = []
+    for i in range(num_features):
+        features.append(form.cleaned_data[f'column_{i}'])
+        feature_eng_choices.append(form.cleaned_data[f'feature_eng_{i}'])
+
+    return aggregation_method, file_paths, start_row, end_row, features, feature_eng_choices
+
 
 
 ####################################################################
 
 # Function that handles the select model type form update
 def update_build_model_form(request):
-    model_type = request.POST.get('model_type')
+    model_form = request.POST.get('model_form')
 
-    if model_type == 'sequential':
+    if model_form == 'sequential':
         seq_form = BuildSequentialForm(hidden_layer_count=1)
         form_html = render_to_string('models/build_sequential_model_form.html', {'seq_form': seq_form}, request=request)
-    elif model_type == 'xgboost':
+    elif model_form == 'xgboost':
         form_html = render_to_string('models/build_xgboost_model_form.html', {}, request=request)
     else:
         form_html = ''
 
     return JsonResponse({'model_form_html': form_html})
-
 
 def update_sequential_model_form(request):
     hidden_layer_count = int(request.POST.get('hidden_layers', 1))
@@ -77,8 +132,17 @@ def update_sequential_model_form(request):
     hidden_layer_html = render_to_string('partials/hidden_layer_form.html', context)
     return JsonResponse({'hidden_layer_html': hidden_layer_html})
 
+# Function that returns the user choices for the BuildModelForm
+def fetch_build_model_form_choices(form):
+    model_title = form.cleaned_data['model_title']
+    model_comment = form.cleaned_data['comment']
+    model_form = form.cleaned_data['model_form']
+    dataset_id = form.cleaned_data['feature_dataset']
+
+    return model_title, model_comment, model_form, dataset_id
+
 # Function that handles the user choices for the sequential model form
-def process_sequential_model_form(form, feature_dataset):
+def fetch_sequential_model_form_choices(form, feature_dataset):
     # Fetches the user choices from the form
     input_nodes = form.cleaned_data['input_nodes']
     input_layer_type = form.cleaned_data['input_layer_type']

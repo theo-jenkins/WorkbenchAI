@@ -24,7 +24,7 @@ def fetch_sample_dataset(title, sample_size):
         with connection.cursor() as cursor:
             # Ensure proper table name formatting to prevent SQL injection
             table_name = f'myapp_{title}'
-            cursor.execute(f'SELECT * FROM {table_name} LIMIT %s', [sample_size])
+            cursor.execute(f'SELECT * FROM "{table_name}" LIMIT %s', [sample_size])
             rows = cursor.fetchmany(sample_size)  # Fetch up to sample_size rows
 
             # Fetch column names
@@ -39,7 +39,7 @@ def fetch_sample_dataset(title, sample_size):
         return None, None
 
 # Function that saves the metadata of a dataset or model
-def save_metadata(title, comment, user, file_path, tag):
+def save_metadata(title, comment, user, file_path, form, tag):
     # Django automatically generates a unique ID
     metadata = Metadata.objects.create(
         title=title,
@@ -47,6 +47,7 @@ def save_metadata(title, comment, user, file_path, tag):
         user=user,
         file_path=file_path,
         created_at=timezone.now(),
+        form=form,
         tag=tag,
     )
     return metadata
@@ -73,3 +74,13 @@ def calc_dataset_shape(dataset_id):
         return dataset.shape
     except Exception as e:
         print(f'Error loading SQLite tables: {e}')
+
+# Function that merges date columns into a single datetime object column
+def merge_datetime(df, date_cols):
+    if len(date_cols) == 2: # Indicates date and time column
+        date_col, time_col = date_cols
+        df['datetime'] = pd.to_datetime(df[date_col] + ' ' + df[time_col], format='%d/%m/%Y %H:%M')
+    elif len(date_cols) == 1: # Indicates just a date column
+        date_col = date_cols[0]
+        df['datetime'] = pd.to_datetime(df[date_col], format='%d/%m/%Y')
+    return df

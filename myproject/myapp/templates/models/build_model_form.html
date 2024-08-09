@@ -9,7 +9,7 @@
             {% csrf_token %}
             <div><label for="{{ form.model_title.id_for_label }}">{{ form.model_title.label }}</label>{{ form.model_title }}</div>
             <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
-            <div><label for="{{ form.model_type.id_for_label }}">{{ form.model_type.label }}</label>{{ form.model_type }}</div>
+            <div><label for="{{ form.model_form.id_for_label }}">{{ form.model_form.label }}</label>{{ form.model_form }}</div>
             <div><label for="{{ form.feature_dataset.id_for_label }}">{{ form.feature_dataset.label }}</label>{{ form.feature_dataset }}</div>
 
             <div id="model-form-container"></div>
@@ -19,14 +19,14 @@
 
         <script type="text/javascript">
             $(document).ready(function() {
-                $('input[name="model_type"]').change(function() {
-                    var modelType = $(this).val();
+                $('input[name="model_form"]').change(function() {
+                    var modelForm = $(this).val();
                     var featureDataset = $('#id_feature_dataset').val();
                     $.ajax({
                         url: "{% url 'update_build_model_form' %}",
                         method: "POST",
                         data: {
-                            'model_type': modelType,
+                            'model_form': modelForm,
                             'feature_dataset': featureDataset,
                             'csrfmiddlewaretoken': '{{ csrf_token }}'
                         },

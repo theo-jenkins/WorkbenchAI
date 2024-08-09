@@ -25,6 +25,7 @@ class Metadata(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     file_path = models.CharField(max_length=255)
+    form = models.CharField(max_length=50) # 'tabular', 'ts', 'sequential', 'xgboost'
     tag = models.CharField(max_length=50) # 'features', 'outputs', 'untrained', 'trained'
 
     class Meta:

@@ -14,6 +14,12 @@ from .db_functions import save_metadata
 def build_sequential_model(title, user, comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics):
     # Defines our model type
     model = Sequential()
+    
+    # Adjsut input shape for LSTM and GRU layers
+    if layer_types[0] in ['LSTM', 'GRU']:
+        input_shape = (None, input_shape[0]) # Time step dimension is None
+    else:
+        input_shape = input_shape # For dense layers, keep it as it
 
     # Add an input layer
     model.add(Input(shape=input_shape))
@@ -41,11 +47,11 @@ def build_sequential_model(title, user, comment, layer_types, input_shape, nodes
 
     # Saves the model as a file
     history = None
-    save_model(title, model, history, 'untrained', user, comment)
+    save_sequential_model(title, model, history, 'sequential', 'untrained', user, comment)
     return model
 
 # Function that saves a keras model based on if its trained or untrained
-def save_model(title, model, history, trained_status, user, comment):
+def save_sequential_model(title, model, history, model_form, trained_status, user, comment):
     # Determine the directory based on the training status
     if trained_status == 'trained':
         save_dir = os.path.join(settings.BASE_DIR, 'nn_models', 'trained', title)
@@ -72,7 +78,7 @@ def save_model(title, model, history, trained_status, user, comment):
             json.dump(history.history, f)
 
     # Saves the metadata
-    save_metadata(title, comment, user, model_path, trained_status)
+    save_metadata(title, comment, user, model_path, model_form, trained_status)
 
 # Function which loads the training history of a model
 def load_training_history(model_title):

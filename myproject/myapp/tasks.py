@@ -2,62 +2,21 @@ from __future__ import absolute_import, unicode_literals
 import os
 import re
 import pandas as pd
-import zipfile
 from celery import shared_task
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.db import transaction, DatabaseError
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
-
-
-# Function that validates and saves the file and deletes the .zip if applicable
-def upload_files(files):
-    valid_extensions = ['.zip', '.csv']
-    processed_files = []
-    
-    # Ensure the uploaded_files directory exists
-    upload_dir = os.path.join(settings.MEDIA_ROOT)
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    for file in files:
-        if not any(file.name.endswith(ext) for ext in valid_extensions):
-            print(f'Invalid file extension: {file.name}')
-            continue  # Skip to the next file
-
-        try:
-            file_path = os.path.join(upload_dir, file.name)
-            # Save the uploaded file to the directory
-            with open(file_path, 'wb+') as destination:
-                for chunk in file.chunks():
-                    destination.write(chunk)
-            
-            # Handle .zip files
-            if file.name.endswith('.zip'):
-                with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                    for zip_info in zip_ref.infolist():
-                        if zip_info.filename.endswith('.csv'):
-                            zip_info.filename = os.path.basename(zip_info.filename)  # Remove any directory structure
-                            zip_ref.extract(zip_info, upload_dir)
-                os.remove(file_path)  # Remove the .zip file after extraction
-            
-            # Append successfully processed file
-            processed_files.append(file.name)
-        
-        except Exception as e:
-            print(f'An error occured uploading the file: {e}')
-            continue  # Proceed with the next file
-
-    return processed_files  # Return list of processed files
-    
+from .db_functions import merge_datetime
 
 # Function that creates a custom dataset as a dataframe
-def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices):
+def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices, aggregation_method):
     # Initialise an empty list to hold dataframes
     dataframes = []
 
     # Loop through each file and read it as DataFrame
     for file_path in file_paths:
-        full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+        full_path = os.path.join(settings.USER_ROOT, file_path)
         chunk_iter = pd.read_csv(full_path, usecols=features, chunksize=100000)
         
         for chunk in chunk_iter:
@@ -67,65 +26,57 @@ def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_
     concat_df = pd.concat(dataframes, ignore_index=True)
 
     # Trim the DataFrame to the specified rows
-    trimmed_df = concat_df.iloc[start_row:end_row]
-    df = trimmed_df
+    df = concat_df.iloc[start_row:end_row]
 
     if len(features) != len(feature_eng_choices):
         raise ValueError('Frequency of features and feature engineering choices do not match.')
 
     # Handle invalid column names
     cleaned_columns = clean_column_names(df.columns)
-    cleaned_features = clean_column_names(features)
     df.columns = cleaned_columns
 
-    # Debuggings
-    print(f'Original columns: {features}')
-    print(f'New columns: {cleaned_columns}')
+    # Identify date columns and create a subset DataFrame for date merging
+    date_cols = [features[i] for i in range(len(feature_eng_choices)) if 'date_col' in feature_eng_choices[i]]
+    if date_cols:
+        date_df = df[date_cols]
+        merged_date_df = merge_datetime(date_df, date_cols)
+        df['datetime'] = merged_date_df['datetime']
+        # Remove original date columns
+        df.drop(columns=date_cols, inplace=True)
+        print(f'Merged datetime columns: {date_cols}')
+
+    # Create a list of remaining features after removing date columns
+    remaining_features = [feature for feature in cleaned_columns if feature not in date_cols]
+    remaining_choices = [choices for feature, choices in zip(features, feature_eng_choices) if feature not in date_cols]
+    print(f'remaining: {remaining_features}, {remaining_choices}')
 
     # Iterate over each column with its corresponding feature choices
-    for feature, choices in zip(cleaned_features, feature_eng_choices):
+    for feature, choices in zip(remaining_features, remaining_choices):
         # Use a temporary DataFrame slice to avoid SettingWithCopyWarning
         column_data = df[[feature]].copy()
 
         if 'handle_missing' in choices:
-            df[feature] = clean_data(df[feature])
+            df.loc[:, feature] = handle_missing(df[feature])
             print('Missing values handled.')
 
         if 'normalize' in choices:
             scaler = MinMaxScaler()
             column_data = scaler.fit_transform(column_data)
-            df[feature] = column_data  # Update the original DataFrame
+            df.loc[:, feature] = column_data  # Update the original DataFrame
             print('Dataset normalized.')
 
         if 'standardize' in choices:
             scaler = StandardScaler()
             column_data = scaler.fit_transform(column_data)
-            df[feature] = column_data  # Update the original DataFrame
+            df.loc[:, feature] = column_data  # Update the original DataFrame
             print('Dataset standardized')
-
-    return df
-
-# Function to reformat dd/mm/yyyy into yyyy-mm-dd datetime objects
-def format_dates(df):
-    date_cols = df.select_dtypes(include=['object']).columns
-    for col in date_cols:
-        # Check if the first entry matches the dd/mm/yyyy format
-        if re.match(r'^\d{2}/\d{2}/\d{4}$', df[col].iloc[0]):
-            # Convert entire column to datetime and reformat to yyyy-mm-dd
-            df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')
     
-    return df
+    # Handle any aggregation method
+    if aggregation_method:
+        df.set_index('datetime', inplace=True)
+        df = df.resample(aggregation_method).mean().reset_index()
+        print(f'Data aggregated according to resolution: {aggregation_method}')
 
-# Function to clean data by replacing erroneous values with zero
-def clean_data(df):
-    # Replace -9999 with zero
-    df.replace(-9999, 0, inplace=True)
-    # Handle invalid date formats
-    #df = format_dates(df)
-    # Convert all values to floats and set non-numeric values to NaN
-    df = df.apply(pd.to_numeric, errors='coerce')
-    # Replace missing values with zero
-    df.fillna(0, inplace=True)
     return df
 
 # Function to clean column names
@@ -139,6 +90,28 @@ def clean_column_names(columns):
             valid_col = '_' + valid_col
         valid_columns.append(valid_col)
     return valid_columns
+
+# Function to reformat dd/mm/yyyy into yyyy-mm-dd datetime objects
+def format_dates(df):
+    date_cols = df.select_dtypes(include=['object']).columns
+    for col in date_cols:
+        # Check if the first entry matches the dd/mm/yyyy format
+        if re.match(r'^\d{2}/\d{2}/\d{4}$', df[col].iloc[0]):
+            # Convert entire column to datetime and reformat to yyyy-mm-dd
+            df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')
+    
+    return df
+
+# Function to clean data by replacing erroneous values with zero
+def handle_missing(df):
+    # Replace -9999 with zero
+    df.replace(-9999, 0, inplace=True)
+    # Convert all values to floats and set non-numeric values to NaN
+    df.apply(pd.to_numeric, errors='coerce', inplace=True)
+    # Replace missing values with zero
+    df.fillna(0, inplace=True)
+
+    return df
 
 # Function that converts a dataset into a list of model instances
 def create_model_instances(dataset, db):
