@@ -14,8 +14,8 @@ from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, Proc
 from .models import create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
 from .site_functions import get_latest_commit_info, upload_file, get_common_columns
-from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata
-from .model_functions import build_sequential_model, save_sequential_model, load_training_history, plot_metrics
+from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata, prepare_datasets
+from .model_functions import build_sequential_model, save_sequential_model, load_training_history, plot_metrics, prepare_model
 from .form_functions import fetch_process_data_form_choices, fetch_tabular_form_choices, fetch_ts_form_choices, fetch_build_model_form_choices, fetch_sequential_model_form_choices, fetch_train_model_form_choices
 
 # View for the users dashboard
@@ -117,10 +117,10 @@ def handle_process_data_form(request):
                         data, features = fetch_sample_dataset(dataset_title, 50)
                         return render(request, 'datasets/sample_dataset.html', {'title': dataset_title, 'data': data, 'features': features})
                     else:
-                        print(f'dataset not saved:')
+                        print(f'Dataset not saved: {dataset_title}')
     else:
         form = ProcessDataForm()
-    return render('datasets/process_data_form.html', {'form': form}, request=request)
+    return render(request, 'datasets/process_data_form.html', {'form': form})
 
 
 # View that renders the initial build model form
@@ -156,7 +156,7 @@ def handle_build_model_form(request):
             return render(request, 'models/build_model_form.html', {'form': form})
     else:
         form = BuildModelForm()
-    return render('models/build_model_form.html', {'form': form}, request=request)
+    return render(request, 'models/build_model_form.html', {'form': form})
 
 # View that handles the train_model form
 # Functions: fetch_train_model_form_choices(), populate_train_model_form()
@@ -164,7 +164,9 @@ def train_model_form(request):
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
         if form.is_valid():
-            title, comment, features, outputs, model, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
+            title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
+            features, outputs = prepare_datasets(features_id, outputs_id)
+            model = prepare_model(model_id)
             history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
             user = request.user
             save_sequential_model(title, model, history, 'sequential', 'trained', user, comment)

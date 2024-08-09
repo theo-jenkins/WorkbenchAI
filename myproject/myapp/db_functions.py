@@ -82,5 +82,74 @@ def merge_datetime(df, date_cols):
         df['datetime'] = pd.to_datetime(df[date_col] + ' ' + df[time_col], format='%d/%m/%Y %H:%M')
     elif len(date_cols) == 1: # Indicates just a date column
         date_col = date_cols[0]
-        df['datetime'] = pd.to_datetime(df[date_col], format='%d/%m/%Y')
+        df['datetime'] = pd.to_datetime(df[date_col] + ' 00:00', format='%d/%m/%Y %H:%M')
     return df
+
+# Function to prepare selected datasets for training
+def prepare_datasets(features_id, outputs_id):
+    # Fetches the dataset metadata
+    try:
+        features_metadata = Metadata.objects.get(id=features_id)
+        outputs_metadata = Metadata.objects.get(id=outputs_id)
+    except Metadata.DoesNotExist:
+        print(f'Dataset metadata could not be found: {features_id}, {outputs_id}')
+        return None
+    
+    # Load features and outputs from SQLite database
+    features, outputs = None, None
+    try:
+        features = load_sqlite_table(features_metadata.file_path, features_metadata.title)
+        outputs = load_sqlite_table(outputs_metadata.file_path, outputs_metadata.title)
+    except Exception as e:
+        print(f'Error loading SQLite tables: {e}')
+
+    if features is not None and not features.empty:
+        print(f'Features loaded: {features_metadata.title}')
+    else:
+        print('Features data is empty or could not be loaded.')
+        return None
+
+    if outputs is not None and not outputs.empty:
+        print(f'Outputs loaded: {outputs_metadata.title}')
+    else:
+        print('Outputs data is empty or could not be loaded.')
+        return None
+
+    # Check if both datasets are marked as time series ('ts')
+    if features_metadata.form == 'ts' and outputs_metadata.form == 'ts':
+        print('Both datasets are marked as timeseries. Aligning...')
+        features, outputs = align_timeseries(features, outputs)
+
+    return features, outputs
+
+# Function that aligns two timeseries dataframes to have the same datatime entries
+def align_timeseries(df1, df2):
+    # Convert the 'datetime' columns to datetime objects if they aren't already
+    df1['datetime'] = pd.to_datetime(df1['datetime'])
+    df2['datetime'] = pd.to_datetime(df2['datetime'])
+
+    # Sort the dataframes by 'datetime'
+    df1.sort_values(by='datetime', inplace=True)
+    df2.sort_values(by='datetime', inplace=True)
+
+    # Set the 'datetime' columns as the index for alignment
+    df1.set_index('datetime', inplace=True)
+    df2.set_index('datetime', inplace=True)
+
+    # Create a common datetime index that both dataframes will be aligned to
+    common_index = df1.index.intersection(df2.index)
+
+    if common_index.empty:
+        print('No common datetime index was found.')
+    else:
+        print('Common datatime index found.')        
+
+    # Reindex both dataframes to the common datetime index
+    aligned_df1 = df1.reindex(common_index)
+    aligned_df2 = df2.reindex(common_index)
+
+    # Drop the 'datetime' index (reset index without keeping it as a column)
+    aligned_df1.reset_index(drop=True, inplace=True)
+    aligned_df2.reset_index(drop=True, inplace=True)
+
+    return aligned_df1, aligned_df2

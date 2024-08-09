@@ -5,9 +5,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from django.conf import settings
 from tensorflow.keras import Input
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, LSTM, GRU
 from tensorflow.keras.optimizers import get as get_optimizer
+from .models import Metadata
 from .db_functions import save_metadata
 
 # Function that builds a keras neural network
@@ -119,3 +120,22 @@ def plot_metrics(model_title, history):
     plt.close(fig)  # Close the figure to free memory
 
     return fig_url
+
+# Function to fetch and load a keras model
+def prepare_model(model_id):
+    try:
+        model_metadata = Metadata.objects.get(id=model_id)
+    except Metadata.DoesNotExist:
+        print(f'Model metadata could not be found: {model_id}')
+        return None
+    
+    # Load keras model
+    model = None
+    try:
+        model = load_model(model_metadata.file_path)
+    except Exception as e:
+        print(f'Error loading keras model: {e}')
+    if model:
+        print(f'Model loaded: {model_metadata.title}')
+        
+    return model

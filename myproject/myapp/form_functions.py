@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from django.template.loader import render_to_string
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 from .forms import ProcessTimeSeriesForm, ProcessTabularForm, BuildSequentialForm
 from .models import Metadata
 from .site_functions import get_max_rows, get_common_columns
@@ -189,28 +189,5 @@ def fetch_train_model_form_choices(form):
     verbose = form.cleaned_data['verbose']
     validation_split = float(form.cleaned_data['validation_split'])
 
-    # Retrieves the Metadata objects
-    try:
-        features_metadata = Metadata.objects.get(id=features_id)
-        outputs_metadata = Metadata.objects.get(id=outputs_id)
-        model_metadata = Metadata.objects.get(id=model_id)
-    except Metadata.DoesNotExist:
-        return None, None, None, batch_size, epochs, verbose, validation_split
-    
-    # Load features and outputs from SQLite database
-    features, outputs = None, None
-    try:
-        features = load_sqlite_table(features_metadata.file_path, features_metadata.title)
-        outputs = load_sqlite_table(outputs_metadata.file_path, outputs_metadata.title)
-    except Exception as e:
-        print(f'Error loading SQLite tables: {e}')
-    
-    # Load keras model
-    model = None
-    try:
-        model = load_model(model_metadata.file_path)
-    except Exception as e:
-        print(f'Error loading keras model: {e}')
-
-    return title, comment, features, outputs, model, batch_size, epochs, verbose, validation_split
+    return title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split
 

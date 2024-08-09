@@ -48,12 +48,11 @@ def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_
     # Create a list of remaining features after removing date columns
     remaining_features = [feature for feature in cleaned_columns if feature not in date_cols]
     remaining_choices = [choices for feature, choices in zip(features, feature_eng_choices) if feature not in date_cols]
-    print(f'remaining: {remaining_features}, {remaining_choices}')
 
     # Iterate over each column with its corresponding feature choices
     for feature, choices in zip(remaining_features, remaining_choices):
         # Use a temporary DataFrame slice to avoid SettingWithCopyWarning
-        column_data = df[[feature]].copy()
+        column_data = df[feature].copy()
 
         if 'handle_missing' in choices:
             df.loc[:, feature] = handle_missing(df[feature])
@@ -107,7 +106,7 @@ def handle_missing(df):
     # Replace -9999 with zero
     df.replace(-9999, 0, inplace=True)
     # Convert all values to floats and set non-numeric values to NaN
-    df.apply(pd.to_numeric, errors='coerce', inplace=True)
+    df.apply(pd.to_numeric, errors='coerce')
     # Replace missing values with zero
     df.fillna(0, inplace=True)
 

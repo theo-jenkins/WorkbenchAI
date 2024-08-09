@@ -140,7 +140,7 @@ class ProcessTimeSeriesForm(forms.Form):
         return files
     
     aggregation_method = forms.ChoiceField(
-        required=True,
+        required=False,
         choices=AGGREGATION_FREQUENCY_CHOICES,
         widget=forms.RadioSelect,
     )
