@@ -9,14 +9,18 @@ import pandas as pd
 class CustomUser(AbstractUser):
     user_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     first_name = models.CharField(max_length=30)
+    email = models.EmailField(max_length=255, unique=True)
     TYPE_CHOICES = [
         ('farmer', 'Farmer'),
         ('developer', 'Developer'),
     ]
-    type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='farmer')
+    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='developer')
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['first_name']
 
     def __str__(self):
-        return self.username
+        return self.email
 
 class Metadata(models.Model):
     title = models.CharField(max_length=255)

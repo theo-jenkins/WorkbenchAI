@@ -1,18 +1,33 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from django.contrib.auth.models import User
-from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.contrib.auth import authenticate
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
 from .models import CustomUser, Metadata
 from .site_functions import get_uploaded_files
 from .form_choices import FEATURE_ENG_CHOICES, DATASET_FORM_CHOICES, DATASET_TYPE_CHOICES, AGGREGATION_FREQUENCY_CHOICES, MODEL_FORM_CHOICES, LAYER_TYPE_CHOICES, ACTIVATION_TYPE_CHOICES, OPTIMIZER_CHOICES, LOSS_CHOICES, METRIC_CHOICES
 
+class CustomAuthenticationForm(AuthenticationForm):
+    username = forms.EmailField(label='Email', max_length=255, required=True)
+
+    def clean(self):
+        email = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+
+        if email and password:
+            self.user_cache = authenticate(username=email, password=password)
+            if self.user_cache is None:
+                raise forms.ValidationError('Invalid email or password.')
+        return self.cleaned_data
+    def get_user(self):
+        return self.user_cache
+
 class CustomUserCreationForm(UserCreationForm):
     class Meta(UserCreationForm):
         model = CustomUser
-        fields = ('username', 'password1', 'password2', 'first_name', 'type')
+        fields = ('email', 'password1', 'password2', 'first_name', 'type')
 
     def save(self, commit=True):
-        user = super(CustomUserCreationForm, self).save(commit=False)
+        user = super().save(commit=False)
         if commit:
             user.save()
         return user
@@ -20,7 +35,7 @@ class CustomUserCreationForm(UserCreationForm):
 class CustomUserChangeForm(UserChangeForm):
     class Meta:
         model = CustomUser
-        fields = ('username', 'email', 'type')
+        fields = ('email', 'type')
 
 
 def validate_file_extensions(file):
@@ -316,6 +331,11 @@ class TrainModelForm(forms.Form):
         max_value=1,
         initial=0.05,
         decimal_places=2,
+    )
+    timesteps = forms.IntegerField(
+        min_value=1,
+        initial=7,
+        required=0,
     )
 
 

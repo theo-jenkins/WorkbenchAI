@@ -4,7 +4,7 @@ from tensorflow.keras.models import load_model
 from .forms import ProcessTimeSeriesForm, ProcessTabularForm, BuildSequentialForm
 from .models import Metadata
 from .site_functions import get_max_rows, get_common_columns
-from .db_functions import load_sqlite_table, calc_dataset_shape
+from .db_functions import get_input_shape
 
 
 # Function that updates the base process data form depending if timeseries or tabular is selected
@@ -167,11 +167,8 @@ def fetch_sequential_model_form_choices(form, feature_dataset):
     layer_types.append(output_layer_type)
     activations.append(output_activation)
 
-    # Calculates the number of features from the selected dataset
-    shape = calc_dataset_shape(feature_dataset)
-    if not shape:
-        raise ValueError(f'An error occured calculated the shape of the dataset: {feature_dataset}')
-    input_shape = (shape[1],)
+    # Calculates the input shape for tabular or timeseries data
+    input_shape = get_input_shape(feature_dataset)
 
     return input_shape, nodes, layer_types, activations, optimizer, loss, metrics
 
@@ -188,6 +185,7 @@ def fetch_train_model_form_choices(form):
     epochs = form.cleaned_data['epochs']
     verbose = form.cleaned_data['verbose']
     validation_split = float(form.cleaned_data['validation_split'])
+    timesteps = form.cleaned_data['timesteps']
 
-    return title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split
+    return title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split, timesteps
 

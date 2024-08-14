@@ -55,19 +55,20 @@ def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_
         column_data = df[feature].copy()
 
         if 'handle_missing' in choices:
-            df.loc[:, feature] = handle_missing(df[feature])
+            column_data = handle_missing(column_data)
+            df.loc[:, feature] = column_data
             print('Missing values handled.')
 
         if 'normalize' in choices:
             scaler = MinMaxScaler()
-            column_data = scaler.fit_transform(column_data)
-            df.loc[:, feature] = column_data  # Update the original DataFrame
+            column_data = scaler.fit_transform(column_data.values.reshape(-1, 1))  # Reshape to 2D
+            df.loc[:, feature] = column_data.flatten().astype('float64')  # Flatten back to 1D if needed
             print('Dataset normalized.')
 
         if 'standardize' in choices:
             scaler = StandardScaler()
-            column_data = scaler.fit_transform(column_data)
-            df.loc[:, feature] = column_data  # Update the original DataFrame
+            column_data = scaler.fit_transform(column_data.values.reshape(-1, 1))  # Reshape to 2D
+            df.loc[:, feature] = column_data.flatten().astype('float64')  # Flatten back to 1D if needed
             print('Dataset standardized')
     
     # Handle any aggregation method
@@ -156,6 +157,7 @@ def commit_to_db(entries, db, batch_size):
 
 # Function that trains the selected model
 def train_model(features, output, model, batch_size, epochs, verbose, validation_split):
+    print(f'Features_shape: {features.shape}')
     history = model.fit(features, output,
                     batch_size=batch_size,
                     epochs=epochs,

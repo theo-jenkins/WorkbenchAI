@@ -6,7 +6,7 @@
 {% block content %}
         <p> {{ message }}</p>
     {% if user.is_authenticated %}
-        <p>Hello, {{ user.username }}!</p>
+        <p>Hello, {{ user.first_name }}!</p>
         <p>This is your dashboard</p>
         <p><a href="{% url 'upload_data_form' %}">Upload datasets</a></p>
         <p><a href="{% url 'process_data_form' %}">Process datasets</a></p>

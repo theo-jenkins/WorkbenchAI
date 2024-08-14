@@ -1,12 +1,10 @@
 from django.urls import path
-from django.contrib.auth import views as auth_views
 from . import views
 from .form_functions import update_process_data_form, update_tabular_form, update_ts_form, update_build_model_form, update_sequential_model_form
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path('login/', auth_views.LoginView.as_view(), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('login/', views.login, name='login'),
     path('signup/', views.signup, name='signup'),
     path('upload_data_form/', views.upload_data_form, name='upload_data_form'),
     path('process_data_form/', views.process_data_form, name='process_data_form'),

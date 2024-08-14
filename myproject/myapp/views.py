@@ -4,14 +4,15 @@ import os
 import shutil
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import authenticate, login as auth_login
+from django.contrib.auth.models import User
 from django.http import HttpResponseForbidden
 from django.conf import settings
 from django.urls import reverse
 from keras.models import load_model
 from contextlib import redirect_stdout
-from .forms import UploadFileForm, CustomUserCreationForm, ProcessDataForm, ProcessTabularForm, ProcessTimeSeriesForm, BuildModelForm, BuildSequentialForm, TrainModelForm
-from .models import create_custom_db, Metadata
+from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, ProcessTabularForm, ProcessTimeSeriesForm, BuildModelForm, BuildSequentialForm, TrainModelForm
+from .models import CustomUser, create_custom_db, Metadata
 from .tasks import create_custom_dataset, create_model_instances, train_model
 from .site_functions import get_latest_commit_info, upload_file, get_common_columns
 from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata, prepare_datasets
@@ -26,17 +27,45 @@ def home(request):
     }    
     return render(request, 'home.html', context)
 
+# View for the login page
+def login(request):
+    # Check if any accounts exist
+    if CustomUser.objects.count() == 0:
+        return redirect('signup')  # Redirect to signup if no users exist
+
+    if request.method == 'POST':
+        form = CustomAuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            if user is not None:
+                auth_login(request, form.get_user())
+                return redirect('home')
+            else:
+                # Add an error message if authentication fails
+                error_message = "Invalid username or password, user is none"
+                return render(request, 'authentication/login.html', {'form': form, 'error_message': error_message})
+        else:
+            # Add an error message if authentication fails
+            error_message = "Invalid username or password, form not valid"
+            return render(request, 'authentication/login.html', {'form': form, 'error_message': error_message})
+    else:
+        form = CustomAuthenticationForm()
+        return render(request, 'authentication/login.html', {'form': form})
+
 # View for the signup page
 def signup(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()
-            username = form.cleaned_data.get('username')
+            email = form.cleaned_data.get('email')
             raw_password = form.cleaned_data.get('password1')
-            user = authenticate(username=username, password=raw_password)
-            login(request, user)
-            return redirect('home')
+            user = authenticate(username=email, password=raw_password)
+            if user is not None:
+                auth_login(request, user)  # Only log in if the user is authenticated successfully
+                return redirect('home')
+            else:
+                form.add_error(None, "Authentication failed. Please check your credentials.")
     else:
         form = CustomUserCreationForm()
     return render(request, 'authentication/signup.html', {'form': form})
@@ -122,7 +151,6 @@ def handle_process_data_form(request):
         form = ProcessDataForm()
     return render(request, 'datasets/process_data_form.html', {'form': form})
 
-
 # View that renders the initial build model form
 def build_model_form(request):
     if request.method == 'POST':
@@ -164,10 +192,17 @@ def train_model_form(request):
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
         if form.is_valid():
-            title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split = fetch_train_model_form_choices(form)
-            features, outputs = prepare_datasets(features_id, outputs_id)
+            # Fetches all user choices
+            title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split, timesteps = fetch_train_model_form_choices(form)
+
+            # Loads datasets and keras models
+            features, outputs = prepare_datasets(features_id, outputs_id, timesteps)
             model = prepare_model(model_id)
+
+            # Trains model on loaded datasets
             history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
+
+            # Saves model and history as a .png
             user = request.user
             save_sequential_model(title, model, history, 'sequential', 'trained', user, comment)
             fig_url = plot_metrics(title, history.history)

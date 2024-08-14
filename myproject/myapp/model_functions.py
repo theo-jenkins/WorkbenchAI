@@ -16,13 +16,8 @@ def build_sequential_model(title, user, comment, layer_types, input_shape, nodes
     # Defines our model type
     model = Sequential()
     
-    # Adjsut input shape for LSTM and GRU layers
-    if layer_types[0] in ['LSTM', 'GRU']:
-        input_shape = (None, input_shape[0]) # Time step dimension is None
-    else:
-        input_shape = input_shape # For dense layers, keep it as it
-
     # Add an input layer
+    print(f'input_shape: {input_shape}')
     model.add(Input(shape=input_shape))
 
     # Correctly initializing the input layer

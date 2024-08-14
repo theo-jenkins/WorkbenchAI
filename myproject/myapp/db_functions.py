@@ -1,5 +1,6 @@
 import sqlite3
 import pandas as pd
+import numpy as np
 from django.db import models, connection
 from django.conf import settings
 from django.utils import timezone
@@ -62,18 +63,27 @@ def load_sqlite_table(db_path, table_name):
     conn.close()
     return df
 
-# Function that calculates the input shape of a selected dataset
-def calc_dataset_shape(dataset_id):
+# Function that returns the input shape of a dataset for training a keras model
+def get_input_shape(dataset_id):
     try:
         dataset_metadata = Metadata.objects.get(id=dataset_id)
     except Metadata.DoesNotExist:
         return None
-    
     try:
         dataset = load_sqlite_table(dataset_metadata.file_path, dataset_metadata.title)
-        return dataset.shape
     except Exception as e:
         print(f'Error loading SQLite tables: {e}')
+
+    if dataset_metadata.form == 'tabular':
+        num_features = dataset.shape[1]
+        input_shape = (num_features,) # 1D input for Dense layers
+    elif dataset_metadata.form == 'ts':
+        num_features = dataset.shape[1] - 1 # Subtracting 1 for the datetime column
+        input_shape = (None, num_features) # 2D input for LSTM and GRU layers
+    else:
+        input_shape = None
+
+    return input_shape
 
 # Function that merges date columns into a single datetime object column
 def merge_datetime(df, date_cols):
@@ -86,7 +96,7 @@ def merge_datetime(df, date_cols):
     return df
 
 # Function to prepare selected datasets for training
-def prepare_datasets(features_id, outputs_id):
+def prepare_datasets(features_id, outputs_id, timesteps):
     # Fetches the dataset metadata
     try:
         features_metadata = Metadata.objects.get(id=features_id)
@@ -119,6 +129,7 @@ def prepare_datasets(features_id, outputs_id):
     if features_metadata.form == 'ts' and outputs_metadata.form == 'ts':
         print('Both datasets are marked as timeseries. Aligning...')
         features, outputs = align_timeseries(features, outputs)
+        features = reshape_features(features, timesteps)
 
     return features, outputs
 
@@ -153,3 +164,21 @@ def align_timeseries(df1, df2):
     aligned_df2.reset_index(drop=True, inplace=True)
 
     return aligned_df1, aligned_df2
+
+# Function to reshape timeseries datasets
+def reshape_features(features, timesteps):
+    # Convert DataFrame to NumPy array
+    data = features.values
+    
+    # Initialize empty list to collect sequences
+    sequences = []
+    
+    # Create sequences of the specified length (timesteps)
+    for i in range(len(data) - timesteps + 1):
+        sequences.append(data[i:i + timesteps])
+    
+    # Convert the list of sequences to a NumPy array
+    sequences = np.array(sequences)
+    
+    # The shape of the resulting array will be (num_samples, timesteps, num_features)
+    return sequences
