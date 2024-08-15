@@ -7,16 +7,27 @@
     {% if user.is_authenticated %}
         <form id="model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_build_model_form' %}">
             {% csrf_token %}
+
+            <!-- Display form-level errors -->
+            {% if form_errors %}
+                <div class="alert alert-danger">
+                    {{ form_errors }}
+                </div>
+            {% endif %}
+
+            <!-- Main body of the form -->
             <div><label for="{{ form.model_title.id_for_label }}">{{ form.model_title.label }}</label>{{ form.model_title }}</div>
             <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
             <div><label for="{{ form.model_form.id_for_label }}">{{ form.model_form.label }}</label>{{ form.model_form }}</div>
             <div><label for="{{ form.feature_dataset.id_for_label }}">{{ form.feature_dataset.label }}</label>{{ form.feature_dataset }}</div>
-
+            
+            <!-- Container for dynamically loaded model form -->
             <div id="model-form-container"></div>
 
             <button type="submit">Build model</button>
         </form>
-
+        
+        <!-- JavaScript for handling form selection and AJAX -->
         <script type="text/javascript">
             $(document).ready(function() {
                 $('input[name="model_form"]').change(function() {

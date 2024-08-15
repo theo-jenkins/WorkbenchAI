@@ -9,12 +9,14 @@
     <table border="1" style="border-collapse: collapse; width: 100%;">
         <thead>
             <tr>
+                <!-- View all features in the dataset -->
                 {% for feature in features %}
                     <th style="border: 1px solid black;">{{ feature }}</th>
                 {% endfor %}
             </tr>
         </thead>
         <tbody>
+            <!-- View each row -->
             {% for row in data %}
                 <tr>
                     {% for feature in features %}

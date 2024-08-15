@@ -1,22 +1,26 @@
 <div>
     {% csrf_token %}
-
+    <!-- Main body for ProcessTabularForm -->
     <div><label for="{{ tabular_form.files.id_for_label }}">{{ tabular_form.files.label }}</label>{{ tabular_form.files }}</div>
 
     <div><label for="{{ tabular_form.start_row.id_for_label }}">{{ tabular_form.start_row.label }}</label>{{ tabular_form.start_row }}</div>
+    <!-- End row box filled with max_rows -->
     <div><label for="end_row_input">{{ tabular_form.end_row.label }}</label><input type="number" name="end_row" id="end_row_input" required></div>
 
+    <!-- Number of features +/- button -->
     <div>
         <label for="{{ tabular_form.features.id_for_label }}">{{ tabular_form.features.label }}</label>{{ tabular_form.features }}
         <button type="button" id="increase-layers">+</button>
         <button type="button" id="decrease-layers">-</button>
     </div>        
 
+    <!-- Container for dynamically loaded features form-->
     <div id="feature-fields-container">
         {% include 'partials/feature_fields.html' %}
     </div>
 </div>
 
+<!-- JavaScript and AJAX for handling checked files and number of features -->
 <script type="text/javascript">
 $(document).ready(function(){
     function updateForm() {

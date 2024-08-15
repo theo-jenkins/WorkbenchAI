@@ -6,16 +6,20 @@
     {% if user.is_authenticated %}
         <form id="file-form" method="post" enctype="multipart/form-data" action="{% url 'handle_process_data_form' %}">
             {% csrf_token %}
+
+            <!-- Main body for ProcessDataForm -->
             <div><label for="{{ form.db_title.id_for_label }}">{{ form.db_title.label }}</label>{{ form.db_title }}</div>
             <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
             <div><label for="{{ form.dataset_form.id_for_label }}">{{ form.dataset_form.label }}</label>{{ form.dataset_form }}</div>
             <div><label for="{{ form.dataset_type.id_for_label }}">{{ form.dataset_type.label }}</label>{{ form.dataset_type }}</div>
 
+            <!-- Container for dynamically loaded ProcessDataForm-->
             <div id="process-dataset-form-container"></div>
 
             <button type="submit">Save to database</button>
         </form>
 
+        <!-- JavaScript for handling chosen dataset form and AJAX-->
         <script type="text/javascript">
             $(document).ready(function() {
                 $('input[name="dataset_form"]').change(function() {

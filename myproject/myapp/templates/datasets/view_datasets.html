@@ -10,9 +10,10 @@
             <table border="1" style="border-collapse: collapse; width: 100%;">
                 <thead>
                     <tr>
+                        <!-- Table header for all datasets -->
                         <th>Title</th>
                         <th>Comment</th>
-                        <th>Created at</th>#
+                        <th>Created at</th>
                         <th>Form</th>
                         <th>Tag</th>
                         <th>Actions</th>
@@ -21,6 +22,7 @@
                 <tbody>
                     {% for dataset in datasets %}
                     <tr>
+                        <!-- Table body for dataset metadata -->
                         <td>{{ dataset.title }}</td>
                         <td>{{ dataset.comment }}</td>
                         <td>{{ dataset.created_at }}</td>

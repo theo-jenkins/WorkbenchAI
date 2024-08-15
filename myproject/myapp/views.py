@@ -11,13 +11,13 @@ from django.conf import settings
 from django.urls import reverse
 from keras.models import load_model
 from contextlib import redirect_stdout
-from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, ProcessTabularForm, ProcessTimeSeriesForm, BuildModelForm, BuildSequentialForm, TrainModelForm
-from .models import CustomUser, create_custom_db, Metadata
-from .tasks import create_custom_dataset, create_model_instances, train_model
-from .site_functions import get_latest_commit_info, upload_file, get_common_columns
-from .db_functions import get_db_file_path, fetch_sample_dataset, save_metadata, prepare_datasets
-from .model_functions import build_sequential_model, save_sequential_model, load_training_history, plot_metrics, prepare_model
-from .form_functions import fetch_process_data_form_choices, fetch_tabular_form_choices, fetch_ts_form_choices, fetch_build_model_form_choices, fetch_sequential_model_form_choices, fetch_train_model_form_choices
+from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, BuildSequentialForm, TrainModelForm
+from .models import CustomUser, Metadata
+from .tasks import train_model
+from .site_functions import get_latest_commit_info, upload_file
+from .db_functions import fetch_sample_dataset, prepare_datasets
+from .model_functions import save_sequential_model, load_training_history, plot_metrics, prepare_model
+from .form_functions import fetch_train_model_form_choices
 
 # View for the users dashboard
 def home(request):
@@ -96,92 +96,10 @@ def process_data_form(request):
         form = ProcessDataForm()
     return render(request, 'datasets/process_data_form.html', {'form': form})
 
-# Function that handles the logic for the process data form
-def handle_process_data_form(request):
-    if request.method == 'POST':
-        form = ProcessDataForm(request.POST)
-        if form.is_valid():
-            dataset_title, dataset_comment, dataset_form, dataset_type = fetch_process_data_form_choices(form)
-
-            if dataset_form == 'tabular': # User selected tabular dataset
-                feature_count = int(request.POST.get('features', 1))
-                selected_files = request.POST.getlist('files')
-                common_columns = get_common_columns(selected_files)
-                tabular_form = ProcessTabularForm(request.POST, feature_count=feature_count, common_columns=common_columns)
-                if tabular_form.is_valid():
-                    file_paths, start_row, end_row, features, feature_eng_choices = fetch_tabular_form_choices(tabular_form)
-                    aggregation_method = None
-                    # Attempts to create the dataset, create a db, and save dataset to db
-                    dataset = create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices, aggregation_method)
-                    db = create_custom_db(dataset_title, dataset)
-                    dataset_saved = create_model_instances(dataset, db) # Converts the dataframe to model instances, then commits to db
-
-                    # Handles dataset saved successfully
-                    if dataset_saved:
-                        user = request.user
-                        file_path = get_db_file_path()
-                        save_metadata(dataset_title, dataset_comment, user, file_path, dataset_form, dataset_type)
-                        data, features = fetch_sample_dataset(dataset_title, 50)
-                        return render(request, 'datasets/sample_dataset.html', {'title': dataset_title, 'data': data, 'features': features})
-                    else:
-                        print(f'dataset not saved:')
-
-            elif dataset_form == 'ts': # User selected timeseries dataset
-                feature_count = int(request.POST.get('features', 1))
-                selected_files = request.POST.getlist('files')
-                common_columns = get_common_columns(selected_files)
-                ts_form = ProcessTimeSeriesForm(request.POST, feature_count=feature_count, common_columns=common_columns)
-                if ts_form.is_valid():
-                    aggregation_method, file_paths, start_row, end_row, features, feature_eng_choices = fetch_ts_form_choices(ts_form)
-                    # Attempts to create the dataset, create a db, and save dataset to db
-                    dataset = create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices, aggregation_method)
-                    db = create_custom_db(dataset_title, dataset)
-                    dataset_saved = create_model_instances(dataset, db) # Converts the dataframe to model instances, then commits to db
-
-                    # Handles dataset saved successfully
-                    if dataset_saved:
-                        user = request.user
-                        file_path = get_db_file_path()
-                        save_metadata(dataset_title, dataset_comment, user, file_path, dataset_form, dataset_type)
-                        data, features = fetch_sample_dataset(dataset_title, 50)
-                        return render(request, 'datasets/sample_dataset.html', {'title': dataset_title, 'data': data, 'features': features})
-                    else:
-                        print(f'Dataset not saved: {dataset_title}')
-    else:
-        form = ProcessDataForm()
-    return render(request, 'datasets/process_data_form.html', {'form': form})
-
 # View that renders the initial build model form
 def build_model_form(request):
     if request.method == 'POST':
         form = BuildModelForm(request.POST)
-    else:
-        form = BuildModelForm()
-    return render(request, 'models/build_model_form.html', {'form': form})
-
-# Function that handles the logic for the build model form
-def handle_build_model_form(request):
-    if request.method == 'POST':
-        form = BuildModelForm(request.POST)
-        if form.is_valid():
-            model_title, model_comment, model_form, dataset_id = fetch_build_model_form_choices(form)
-            
-            if model_form == 'sequential':
-                hidden_layer_count = int(request.POST.get('hidden_layers', 1))
-                seq_form = BuildSequentialForm(request.POST, hidden_layer_count=hidden_layer_count)
-                if seq_form.is_valid():
-                    input_shape, nodes, layer_types, activations, optimizer, loss, metrics = fetch_sequential_model_form_choices(seq_form, dataset_id)
-                    user = request.user
-                    model = build_sequential_model(model_title, user, model_comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics)
-                    if model:
-                        model_metadata = Metadata.objects.get(title=model_title)
-                        return redirect(reverse('view_model', kwargs={'model_id': model_metadata.id}))
-                else:
-                    print(f'Form not valid: {seq_form.errors}')
-        else:
-            # Handle form errors
-            print(f'Form not valid: {form.errors}')
-            return render(request, 'models/build_model_form.html', {'form': form})
     else:
         form = BuildModelForm()
     return render(request, 'models/build_model_form.html', {'form': form})
@@ -207,6 +125,7 @@ def train_model_form(request):
             save_sequential_model(title, model, history, 'sequential', 'trained', user, comment)
             fig_url = plot_metrics(title, history.history)
 
+            # Render the evaluation page with the plot
             return render(request, 'models/evaluate_model.html', {'fig_url': fig_url})
     else:
         form = TrainModelForm()

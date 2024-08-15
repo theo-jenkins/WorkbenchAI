@@ -1,10 +1,13 @@
 from django.http import JsonResponse
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.template.loader import render_to_string
-from tensorflow.keras.models import load_model
-from .forms import ProcessTimeSeriesForm, ProcessTabularForm, BuildSequentialForm
-from .models import Metadata
+from .forms import ProcessDataForm, ProcessTimeSeriesForm, ProcessTabularForm, BuildModelForm, BuildSequentialForm
+from .models import Metadata, create_custom_db
 from .site_functions import get_max_rows, get_common_columns
-from .db_functions import get_input_shape
+from .db_functions import get_db_file_path, get_input_shape, fetch_sample_dataset, save_metadata
+from .model_functions import build_sequential_model
+from .tasks import create_custom_dataset, create_model_instances
 
 
 # Function that updates the base process data form depending if timeseries or tabular is selected
@@ -104,6 +107,57 @@ def fetch_ts_form_choices(form):
 
     return aggregation_method, file_paths, start_row, end_row, features, feature_eng_choices
 
+# Function to handle dataset processing and saving for ProcessDataForm
+def process_and_save_dataset(form, dataset_title, dataset_comment, dataset_form, dataset_type, request):
+    feature_count = int(request.POST.get('features', 1))
+    selected_files = request.POST.getlist('files')
+    common_columns = get_common_columns(selected_files)
+
+    # Check if the dataset form is for tabular data
+    if dataset_form == 'tabular':
+        form = ProcessTabularForm(request.POST, feature_count=feature_count, common_columns=common_columns)
+        aggregation_method = None # No aggreagation needed for tabular data
+    
+    # Check if the dataset form is for time series data
+    elif dataset_form == 'ts':
+        form = ProcessTimeSeriesForm(request.POST, feature_count=feature_count, common_columns=common_columns)
+        aggregation_method, file_paths, start_row, end_row, features, feature_eng_choices = fetch_ts_form_choices(form) # Fetch additional parameters specific to time series data
+    else:
+        return None
+    
+    if form.is_valid():
+        file_paths, start_row, end_row, features, feature_eng_choices = fetch_tabular_form_choices(form) if dataset_form == 'tabular' else fetch_ts_form_choices(form) # Depending on the dataset form, fetch the choices for tabular or time series data
+        dataset = create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices, aggregation_method)
+        db = create_custom_db(dataset_title, dataset)
+        dataset_saved = create_model_instances(dataset, db)
+
+        if dataset_saved:
+            user = request.user
+            file_path = get_db_file_path()
+            save_metadata(dataset_title, dataset_comment, user, file_path, dataset_form, dataset_type)
+            data, features = fetch_sample_dataset(dataset_title, 50)
+            return render(request, 'datasets/sample_dataset.html', {'title': dataset_title, 'data': data, 'features': features})
+        else:
+            print(f'Dataset not saved: {dataset_title}')
+            return None
+
+
+# Function that handles the logic for the process data form
+def handle_process_data_form(request):
+    if request.method == 'POST':
+        form = ProcessDataForm(request.POST)
+        if form.is_valid():
+            # Extract choices made by the user in the form
+            dataset_title, dataset_title, dataset_comment, dataset_form, dataset_type = fetch_process_data_form_choices(form)
+
+            # Call the helper function to process and save the dataset
+            response = process_and_save_dataset(form, dataset_title, dataset_comment, dataset_form, dataset_type, request)
+            if response:
+                return response
+        else:
+            form = ProcessDataForm()
+
+    return render(request, 'datasets/process_data_form.html', {'form': form})
 
 
 ####################################################################
@@ -171,6 +225,36 @@ def fetch_sequential_model_form_choices(form, feature_dataset):
     input_shape = get_input_shape(feature_dataset)
 
     return input_shape, nodes, layer_types, activations, optimizer, loss, metrics
+
+# Function that handles the logic for the build model form
+def handle_build_model_form(request):
+    if request.method == 'POST':
+        form = BuildModelForm(request.POST)
+        if form.is_valid():
+            model_title, model_comment, model_form, dataset_id = fetch_build_model_form_choices(form)
+            
+            if model_form == 'sequential':
+                hidden_layer_count = int(request.POST.get('hidden_layers', 1))
+                seq_form = BuildSequentialForm(request.POST, hidden_layer_count=hidden_layer_count)
+                
+                if seq_form.is_valid():
+                    input_shape, nodes, layer_types, activations, optimizer, loss, metrics = fetch_sequential_model_form_choices(seq_form, dataset_id)
+                    user = request.user
+                    
+                    model = build_sequential_model(model_title, user, model_comment, layer_types, input_shape, nodes, activations, optimizer, loss, metrics)
+                    if model:
+                        model_metadata = Metadata.objects.get(title=model_title)
+                        return redirect(reverse('view_model', kwargs={'model_id': model_metadata.id}))
+                
+                # If sequential form is invalid
+                return render(request, 'models/build_model_form.html', {'form': form, 'form_errors': seq_form.errors})
+        
+        # If the build model form is invalid
+        return render(request, 'models/build_model_form.html', {'form': form, 'form_errors': form.errors})
+
+    # GET request: Display the empty build model form
+    form = BuildModelForm()
+    return render(request, 'models/build_model_form.html', {'form': form})
 
 #########################################################################
 

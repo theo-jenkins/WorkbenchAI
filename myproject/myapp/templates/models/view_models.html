@@ -7,6 +7,7 @@
     {% if user.is_authenticated %}
         <body>
             <h1>Your models</h1>
+            <!-- Table header for all models -->
             <table border="1" style="border-collapse: collapse; width: 100%;">
                 <thead>
                     <tr>
@@ -18,6 +19,7 @@
                         <th>Actions</th>
                     </tr>
                 </thead>
+                <!-- Table body for set model metadata -->
                 <tbody>
                     {% for model in models %}
                     <tr>
