@@ -312,6 +312,30 @@ class TrainModelForm(forms.Form):
     model = forms.ChoiceField(
         required=True,
     )    
+
+class TrainTabularModelForm(forms.Form):
+    batch_size = forms.IntegerField(
+        min_value=1,
+        required=True,
+        initial=500
+    )
+    epochs = forms.IntegerField(
+        min_value=1,
+        required=True,
+        initial=10,
+    )
+    verbose = forms.ChoiceField(
+        choices = [(0, '0'), (1, '1'), (2, '2')],
+        required=True,
+    )
+    validation_split = forms.DecimalField(
+        min_value=0,
+        max_value=1,
+        initial=0.05,
+        decimal_places=2,
+    )
+
+class TrainTSModelForm(forms.Form):
     batch_size = forms.IntegerField(
         min_value=1,
         required=True,

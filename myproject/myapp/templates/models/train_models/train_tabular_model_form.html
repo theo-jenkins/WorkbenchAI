@@ -1,0 +1,7 @@
+<div>
+    {% csrf_token %}
+    <div><label for="{{ form.batch_size.id_for_label }}">{{ form.batch_size.label }}</label>{{ form.batch_size }}</div>
+    <div><label for="{{ form.epochs.id_for_label }}">{{ form.epochs.label }}</label>{{ form.epochs }}</div>
+    <div><label for="{{ form.verbose.id_for_label }}">{{ form.verbose.label }}</label>{{ form.verbose }}</div>
+    <div><label for="{{ form.validation_split.id_for_label }}">{{ form.validation_split.label }}</label>{{ form.validation_split }}</div>
+</div>

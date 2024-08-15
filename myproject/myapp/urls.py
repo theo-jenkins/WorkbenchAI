@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .form_functions import handle_process_data_form, update_process_data_form, update_tabular_form, update_ts_form, handle_build_model_form, update_build_model_form, update_sequential_model_form
+from .form_functions import handle_process_data_form, update_process_data_form, update_tabular_form, update_ts_form, handle_build_model_form, update_build_model_form, update_sequential_model_form, handle_train_model_form, update_train_model_form
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -17,6 +17,8 @@ urlpatterns = [
     path('update_sequential_model_form/', update_sequential_model_form, name='update_sequential_model_form'),
     path('update_build_model_form/', update_build_model_form, name='update_build_model_form'),
     path('train_model_form/', views.train_model_form, name='train_model_form'),
+    path('handle_train_model_form/', handle_train_model_form, name='handle_train_model_form'),
+    path('update_train_model_form/', update_train_model_form, name='update_train_model_form'),
     path('view_datasets/', views.view_datasets, name='view_datasets'),
     path('view_dataset/<int:dataset_id>/', views.view_dataset, name='view_dataset'),
     path('delete_dataset/<int:dataset_id>/', views.delete_dataset, name='delete_dataset'),

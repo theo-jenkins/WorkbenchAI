@@ -1,13 +1,13 @@
 from django.http import JsonResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.template.loader import render_to_string
-from .forms import ProcessDataForm, ProcessTimeSeriesForm, ProcessTabularForm, BuildModelForm, BuildSequentialForm
+from .forms import ProcessDataForm, ProcessTimeSeriesForm, ProcessTabularForm, BuildModelForm, BuildSequentialForm, TrainModelForm, TrainTSModelForm, TrainTabularModelForm
 from .models import Metadata, create_custom_db
 from .site_functions import get_max_rows, get_common_columns
-from .db_functions import get_db_file_path, get_input_shape, fetch_sample_dataset, save_metadata
-from .model_functions import build_sequential_model
-from .tasks import create_custom_dataset, create_model_instances
+from .db_functions import get_db_file_path, get_input_shape, fetch_sample_dataset, save_metadata, prepare_datasets
+from .model_functions import build_sequential_model, prepare_model, save_sequential_model, plot_metrics
+from .tasks import create_custom_dataset, create_model_instances, train_model
 
 
 # Function that updates the base process data form depending if timeseries or tabular is selected
@@ -121,20 +121,32 @@ def process_and_save_dataset(form, dataset_title, dataset_comment, dataset_form,
     # Check if the dataset form is for time series data
     elif dataset_form == 'ts':
         form = ProcessTimeSeriesForm(request.POST, feature_count=feature_count, common_columns=common_columns)
-        aggregation_method, file_paths, start_row, end_row, features, feature_eng_choices = fetch_ts_form_choices(form) # Fetch additional parameters specific to time series data
     else:
         return None
     
     if form.is_valid():
-        file_paths, start_row, end_row, features, feature_eng_choices = fetch_tabular_form_choices(form) if dataset_form == 'tabular' else fetch_ts_form_choices(form) # Depending on the dataset form, fetch the choices for tabular or time series data
+        if dataset_form == 'ts': # Handle timeseries form choices
+            aggregation_method, file_paths, start_row, end_row, features, feature_eng_choices = fetch_ts_form_choices(form)
+        else: # Handle tabular form choices
+            file_paths, start_row, end_row, features, feature_eng_choices = fetch_tabular_form_choices(form)
+
+        # Create a DataFrame from the provided files and parameters
         dataset = create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices, aggregation_method)
+
+        # Create a database table from the DataFrame
         db = create_custom_db(dataset_title, dataset)
+
+        # Populate the table with the table
         dataset_saved = create_model_instances(dataset, db)
 
-        if dataset_saved:
+        # Saves metadata entry if db table is created
+        if db:
             user = request.user
             file_path = get_db_file_path()
             save_metadata(dataset_title, dataset_comment, user, file_path, dataset_form, dataset_type)
+        
+        # Renders dataset sample if data is saved
+        if dataset_saved:
             data, features = fetch_sample_dataset(dataset_title, 50)
             return render(request, 'datasets/sample_dataset.html', {'title': dataset_title, 'data': data, 'features': features})
         else:
@@ -148,7 +160,7 @@ def handle_process_data_form(request):
         form = ProcessDataForm(request.POST)
         if form.is_valid():
             # Extract choices made by the user in the form
-            dataset_title, dataset_title, dataset_comment, dataset_form, dataset_type = fetch_process_data_form_choices(form)
+            dataset_title, dataset_comment, dataset_form, dataset_type = fetch_process_data_form_choices(form)
 
             # Call the helper function to process and save the dataset
             response = process_and_save_dataset(form, dataset_title, dataset_comment, dataset_form, dataset_type, request)
@@ -164,17 +176,17 @@ def handle_process_data_form(request):
 
 # Function that handles the select model type form update
 def update_build_model_form(request):
-    model_form = request.POST.get('model_form')
+    build_model_form = request.POST.get('build_model_form')
 
-    if model_form == 'sequential':
+    if build_model_form == 'sequential':
         seq_form = BuildSequentialForm(hidden_layer_count=1)
-        form_html = render_to_string('models/build_sequential_model_form.html', {'seq_form': seq_form}, request=request)
-    elif model_form == 'xgboost':
-        form_html = render_to_string('models/build_xgboost_model_form.html', {}, request=request)
+        form_html = render_to_string('models/build_models/build_sequential_model_form.html', {'seq_form': seq_form}, request=request)
+    elif build_model_form == 'xgboost':
+        form_html = render_to_string('models/build_models/build_xgboost_model_form.html', {}, request=request)
     else:
         form_html = ''
 
-    return JsonResponse({'model_form_html': form_html})
+    return JsonResponse({'build_model_form_html': form_html})
 
 def update_sequential_model_form(request):
     hidden_layer_count = int(request.POST.get('hidden_layers', 1))
@@ -247,14 +259,14 @@ def handle_build_model_form(request):
                         return redirect(reverse('view_model', kwargs={'model_id': model_metadata.id}))
                 
                 # If sequential form is invalid
-                return render(request, 'models/build_model_form.html', {'form': form, 'form_errors': seq_form.errors})
+                return render(request, 'models/build_models/build_model_form.html', {'form': form, 'form_errors': seq_form.errors})
         
         # If the build model form is invalid
-        return render(request, 'models/build_model_form.html', {'form': form, 'form_errors': form.errors})
+        return render(request, 'models/build_models/build_model_form.html', {'form': form, 'form_errors': form.errors})
 
     # GET request: Display the empty build model form
     form = BuildModelForm()
-    return render(request, 'models/build_model_form.html', {'form': form})
+    return render(request, 'models/build_models/build_model_form.html', {'form': form})
 
 #########################################################################
 
@@ -265,11 +277,108 @@ def fetch_train_model_form_choices(form):
     features_id = form.cleaned_data['feature_dataset']
     outputs_id = form.cleaned_data['training_dataset']
     model_id = form.cleaned_data['model']
+
+    return title, comment, features_id, outputs_id, model_id
+
+# Function that returns user choices for training model on tabular datasets
+def fetch_tabular_train_model_form_choices(form):
+    batch_size = form.cleaned_data['batch_size']
+    epochs = form.cleaned_data['epochs']
+    verbose = form.cleaned_data['verbose']
+    validation_split = float(form.cleaned_data['validation_split'])
+
+    return batch_size, epochs, verbose, validation_split
+
+# Function that returns user choices for training model on timeseries datasets
+def fetch_ts_train_model_form_choices(form):
+    print(f'{form.cleaned_data}')
     batch_size = form.cleaned_data['batch_size']
     epochs = form.cleaned_data['epochs']
     verbose = form.cleaned_data['verbose']
     validation_split = float(form.cleaned_data['validation_split'])
     timesteps = form.cleaned_data['timesteps']
 
-    return title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split, timesteps
+    return batch_size, epochs, verbose, validation_split, timesteps
+
+# Function that updates the train model form depending on which datasets are selected
+def update_train_model_form(request):
+    feature_dataset_id = request.POST.get('feature_dataset')
+    training_dataset_id = request.POST.get('training_dataset')
+    model_id = request.POST.get('model')
+
+    # Ensure all required fields are present
+    if not (feature_dataset_id and training_dataset_id and model_id):
+        return JsonResponse({'error': 'All datasets and model must be selected.'})
+
+    feature_metadata = get_object_or_404(Metadata, id=feature_dataset_id)
+    training_metadata = get_object_or_404(Metadata, id=training_dataset_id)
+    model_metadata = get_object_or_404(Metadata, id=model_id)
+
+    # Determine which form to load based on dataset types
+    if feature_metadata.form == training_metadata.form:
+        if feature_metadata.form == 'ts':
+            train_model_form = TrainTSModelForm()
+            template_name = 'models/train_models/train_ts_model_form.html'
+        elif feature_metadata.form == 'tabular':
+            train_model_form = TrainTabularModelForm()
+            template_name = 'models/train_models/train_tabular_model_form.html'
+        else:
+            return JsonResponse({'error': 'Unsupported dataset form type.'})
+
+        # Render the form to HTML
+        form_html = render_to_string(template_name, {'form': train_model_form}, request=request)
+        return JsonResponse({'train_model_form_html': form_html})
+
+    else:
+        # If dataset forms do not match, return an informative error message
+        error_message = (
+            f'Dataset forms do not match. '
+            f'Feature dataset form: {feature_metadata.form}, '
+            f'Training dataset form: {training_metadata.form}. '
+            'Please select datasets with matching forms.'
+        )
+        print(error_message)
+        return JsonResponse({'error': error_message})
+
+# Function that handles the logic for the train model form
+def handle_train_model_form(request):
+    if request.method == 'POST':
+        form = TrainModelForm(request.POST)
+        if form.is_valid():
+            # Fetches all user choices
+            title, comment, feature_dataset_id, training_dataset_id, model_id = fetch_train_model_form_choices(form)
+
+            feature_metadata = get_object_or_404(Metadata, id=feature_dataset_id)
+            training_metadata = get_object_or_404(Metadata, id=training_dataset_id)
+
+            if feature_metadata.form == training_metadata.form:
+                if feature_metadata.form == 'tabular':
+                    train_tabular_model_form = TrainTabularModelForm(request.POST)
+                    if train_tabular_model_form.is_valid():
+                        batch_size, epochs, verbose, validation_split = fetch_tabular_train_model_form_choices(train_tabular_model_form)
+                        timesteps = None
+                elif feature_metadata.form == 'ts':
+                    train_ts_model_form = TrainTSModelForm(request.POST)
+                    if train_ts_model_form.is_valid():
+                        batch_size, epochs, verbose, validation_split, timesteps = fetch_ts_train_model_form_choices(train_ts_model_form)
+
+
+            # Loads datasets and keras models
+            features, outputs = prepare_datasets(feature_dataset_id, training_dataset_id, timesteps)
+            model = prepare_model(model_id)
+
+            # Trains model on loaded datasets
+            history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
+
+            # Saves model and history as a .png
+            user = request.user
+            save_sequential_model(title, model, history, 'sequential', 'trained', user, comment)
+            fig_url = plot_metrics(title, history.history)
+
+            # Render the evaluation page with the plot
+            return render(request, 'models/evaluate_model.html', {'fig_url': fig_url})
+    else:
+        form = TrainModelForm()
+
+    return render(request, 'models/train_models/train_model_form.html', {'form': form})
 

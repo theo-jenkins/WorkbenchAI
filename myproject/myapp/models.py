@@ -47,21 +47,13 @@ def create_custom_db(title, dataset):
 
         attrs = {'__module__': 'myapp.models', 'Meta': Meta}
         for column in columns:
-            value = dataset[column].iloc[0]  # Get the first value from the columns
+            value = dataset[column].iloc[0]  # Get the first value from the column
             
-            # Check if the column's value matches hour time format (hh:mm)
-            if isinstance(value, str) and re.match(r'^\d{2}:\d{2}$', value):
-                attrs[column] = models.TimeField()  # Assign TimeField to the column
-            
-            # Check if the column's value matches date format (dd/mm/yyyy)
-            elif isinstance(value, str) and re.match(r'^\d{2}/\d{2}/\d{4}$', value):
-                attrs[column] = models.DateField()  # Assign DateField to the column
-                        
             # Check if the column's value is of numeric type
-            elif pd.api.types.is_numeric_dtype(value):
+            if pd.api.types.is_numeric_dtype(value):
                 attrs[column] = models.FloatField()  # Assign FloatField to the column
             
-            # If the column's value is neither datetime, time, date nor numeric, treat it as a string
+            # If the column's value is not numeric, treat it as a string
             else:
                 attrs[column] = models.CharField(max_length=255)  # Assign CharField with max length of 255 to the column
         # Create the dynamic model

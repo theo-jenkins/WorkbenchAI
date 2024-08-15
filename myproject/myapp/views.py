@@ -11,13 +11,12 @@ from django.conf import settings
 from django.urls import reverse
 from keras.models import load_model
 from contextlib import redirect_stdout
-from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, BuildSequentialForm, TrainModelForm
+from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, TrainModelForm
 from .models import CustomUser, Metadata
 from .tasks import train_model
 from .site_functions import get_latest_commit_info, upload_file
-from .db_functions import fetch_sample_dataset, prepare_datasets
-from .model_functions import save_sequential_model, load_training_history, plot_metrics, prepare_model
-from .form_functions import fetch_train_model_form_choices
+from .db_functions import fetch_sample_dataset
+from .model_functions import load_training_history, plot_metrics
 
 # View for the users dashboard
 def home(request):
@@ -102,35 +101,15 @@ def build_model_form(request):
         form = BuildModelForm(request.POST)
     else:
         form = BuildModelForm()
-    return render(request, 'models/build_model_form.html', {'form': form})
+    return render(request, 'models/build_models/build_model_form.html', {'form': form})
 
-# View that handles the train_model form
-# Functions: fetch_train_model_form_choices(), populate_train_model_form()
+# View that renders the initial train model form
 def train_model_form(request):
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
-        if form.is_valid():
-            # Fetches all user choices
-            title, comment, features_id, outputs_id, model_id, batch_size, epochs, verbose, validation_split, timesteps = fetch_train_model_form_choices(form)
-
-            # Loads datasets and keras models
-            features, outputs = prepare_datasets(features_id, outputs_id, timesteps)
-            model = prepare_model(model_id)
-
-            # Trains model on loaded datasets
-            history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
-
-            # Saves model and history as a .png
-            user = request.user
-            save_sequential_model(title, model, history, 'sequential', 'trained', user, comment)
-            fig_url = plot_metrics(title, history.history)
-
-            # Render the evaluation page with the plot
-            return render(request, 'models/evaluate_model.html', {'fig_url': fig_url})
     else:
         form = TrainModelForm()
-
-    return render(request, 'models/train_model_form.html', {'form': form})
+    return render(request, 'models/train_models/train_model_form.html', {'form': form})
 
 # View the feature and output datasets created by the signed in user
 def view_datasets(request):

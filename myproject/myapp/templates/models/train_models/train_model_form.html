@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Train model{% endblock %}
+{% block header %}Train model{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <form id="train-model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_train_model_form' %}">
+            {% csrf_token %}
+
+            <!-- Display form-level errors -->
+            {% if form_errors %}
+                <div style="color:red">
+                    {{ form_errors }}
+                </div>
+            {% endif %}
+
+            <!-- Main body of the form -->
+            <div><label for="{{ form.model_title.id_for_label }}">{{ form.model_title.label }}</label>{{ form.model_title }}</div>
+            <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+
+            <!-- Select datasets and models -->
+            <div><label for="{{ form.feature_dataset.id_for_label }}">{{ form.feature_dataset.label }}</label>{{ form.feature_dataset }}</div>
+            <div><label for="{{ form.training_dataset.id_for_label }}">{{ form.training_dataset.label }}</label>{{ form.training_dataset }}</div>
+            <div><label for="{{ form.model.id_for_label }}">{{ form.model.label }}</label>{{ form.model }}</div>
+
+            <!-- Container for dynamically loaded train model form -->
+            <div id="train-model-form-container"></div>
+
+            <!-- Display mismatched dataset form errors -->
+            <div id="error-message" style="color: red; display: none;"></div>
+
+            <button type="submit">Train model</button>
+        </form>
+        
+        <!-- JavaScript for handling form selection and AJAX -->
+        <script type="text/javascript">
+            $(document).ready(function() {
+                // Function to handle the AJAX call
+                function updateForm() {
+                    var featureDataset = $('#id_feature_dataset').val();
+                    var trainingDataset = $('#id_training_dataset').val();
+                    var model = $('#id_model').val();
+        
+                    $.ajax({
+                        url: "{% url 'update_train_model_form' %}",
+                        method: "POST",
+                        data: {
+                            'feature_dataset': featureDataset,
+                            'training_dataset': trainingDataset,
+                            'model': model,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data) {
+                            if (data.error) {
+                                $('#error-message').text(data.error).show();
+                                $('#train-model-form-container').hide(); // Hide the form container
+                            } else {
+                                $('#error-message').hide();
+                                $('#train-model-form-container').html(data.train_model_form_html).show(); // Show the form container
+                            }
+                        }
+                    });
+                }
+        
+                // Trigger the update when any of the three variables change
+                $('#id_feature_dataset, #id_training_dataset, #id_model').change(function() {
+                    updateForm();
+                });
+        
+                // Trigger the update on first render
+                updateForm();
+            });
+        </script>
+        
+        
+    {% endif %}
+{% endblock %}

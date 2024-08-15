@@ -73,8 +73,9 @@ def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_
     
     # Handle any aggregation method
     if aggregation_method:
-        df.set_index('datetime', inplace=True)
-        df = df.resample(aggregation_method).mean().reset_index()
+        df['datetime'] = pd.to_datetime(df['datetime'])
+        df = df.groupby(pd.Grouper(key='datetime', freq=aggregation_method)).mean().reset_index()
+        df = df.dropna(subset=df.columns.difference(['datetime']))
         print(f'Data aggregated according to resolution: {aggregation_method}')
 
     return df
@@ -91,16 +92,6 @@ def clean_column_names(columns):
         valid_columns.append(valid_col)
     return valid_columns
 
-# Function to reformat dd/mm/yyyy into yyyy-mm-dd datetime objects
-def format_dates(df):
-    date_cols = df.select_dtypes(include=['object']).columns
-    for col in date_cols:
-        # Check if the first entry matches the dd/mm/yyyy format
-        if re.match(r'^\d{2}/\d{2}/\d{4}$', df[col].iloc[0]):
-            # Convert entire column to datetime and reformat to yyyy-mm-dd
-            df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce').dt.strftime('%Y-%m-%d')
-    
-    return df
 
 # Function to clean data by replacing erroneous values with zero
 def handle_missing(df):
@@ -157,7 +148,6 @@ def commit_to_db(entries, db, batch_size):
 
 # Function that trains the selected model
 def train_model(features, output, model, batch_size, epochs, verbose, validation_split):
-    print(f'Features_shape: {features.shape}')
     history = model.fit(features, output,
                     batch_size=batch_size,
                     epochs=epochs,

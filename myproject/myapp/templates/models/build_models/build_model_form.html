@@ -5,7 +5,7 @@
 
 {% block content %}
     {% if user.is_authenticated %}
-        <form id="model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_build_model_form' %}">
+        <form id="build-model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_build_model_form' %}">
             {% csrf_token %}
 
             <!-- Display form-level errors -->
@@ -21,8 +21,8 @@
             <div><label for="{{ form.model_form.id_for_label }}">{{ form.model_form.label }}</label>{{ form.model_form }}</div>
             <div><label for="{{ form.feature_dataset.id_for_label }}">{{ form.feature_dataset.label }}</label>{{ form.feature_dataset }}</div>
             
-            <!-- Container for dynamically loaded model form -->
-            <div id="model-form-container"></div>
+            <!-- Container for dynamically loaded build model form -->
+            <div id="build-model-form-container"></div>
 
             <button type="submit">Build model</button>
         </form>
@@ -37,15 +37,15 @@
                         url: "{% url 'update_build_model_form' %}",
                         method: "POST",
                         data: {
-                            'model_form': modelForm,
+                            'build_model_form': modelForm,
                             'feature_dataset': featureDataset,
                             'csrfmiddlewaretoken': '{{ csrf_token }}'
                         },
                         success: function(data) {
                             // Fills the container with the relevant model type html
-                            $('#model-form-container').html(data.model_form_html);
+                            $('#build-model-form-container').html(data.build_model_form_html);
                             // Evaluate the script within the inserted HTML
-                            $('#model-form-container').find('script').each(function(){
+                            $('#build-model-form-container').find('script').each(function(){
                                 $.globalEval(this.text || this.textContent || this.innerHTML || '');
                             });
                         }
