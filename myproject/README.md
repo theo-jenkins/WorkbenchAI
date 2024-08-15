@@ -52,8 +52,8 @@ A powerful web application that allows users to build and train neural networks.
 1. **Create an account** or **log in**
     - To access all the features, create and login in to your account.
 2. **Upload a file** via the upload datasets form.
-    - You can upload one or multiple files in '.zip' or '.csv' formats.
-    - If needed, you can adjust the form validation rules such as 'validate_file_extensions' and 'validation_file_size' found in the forms.py to match your requirements.
+    - You can upload one or multiple files in *'.zip'* or *'.csv'* formats.
+    - If needed, you can adjust the form validation rules such as ```validate_file_extensions``` and ```validation_file_size``` found in the *forms.py* to match your requirements.
 4. **Create your dataset** via the process datasets form.
     - Select from your uploaded files to define the features included in the dataset.
     - Specify the dataset form ('tabular' or 'timeseries') and dataset type ('features' or 'targets').
