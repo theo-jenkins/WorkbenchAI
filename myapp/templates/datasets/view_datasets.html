@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}View datasets{% endblock %}
+{% block header %}View datasets{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <body>
+            <h1>Your Datasets</h1>
+            <table border="1" style="border-collapse: collapse; width: 100%;">
+                <thead>
+                    <tr>
+                        <!-- Table header for all datasets -->
+                        <th>Title</th>
+                        <th>Comment</th>
+                        <th>Created at</th>
+                        <th>Form</th>
+                        <th>Tag</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dataset in datasets %}
+                    <tr>
+                        <!-- Table body for dataset metadata -->
+                        <td>{{ dataset.title }}</td>
+                        <td>{{ dataset.comment }}</td>
+                        <td>{{ dataset.created_at }}</td>
+                        <td>{{ dataset.form }}</td>
+                        <td>{{ dataset.tag }}</td>
+                        <td>
+                            <a href="{% url 'view_dataset' dataset.id %}">View</a>
+                            <a href="{% url 'delete_dataset' dataset.id %}">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </body>
+    {% endif %}
+{% endblock %}

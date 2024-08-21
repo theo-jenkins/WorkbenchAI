@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Build your custom dataset{% endblock %}
+{% block header %}Build your custom dataset{% endblock %}
+{% block content %}
+    {% if user.is_authenticated %}
+        <form id="file-form" method="post" enctype="multipart/form-data" action="{% url 'handle_process_data_form' %}">
+            {% csrf_token %}
+
+            <!-- Main body for ProcessDataForm -->
+            <div><label for="{{ form.db_title.id_for_label }}">{{ form.db_title.label }}</label>{{ form.db_title }}</div>
+            <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+            <div><label for="{{ form.dataset_form.id_for_label }}">{{ form.dataset_form.label }}</label>{{ form.dataset_form }}</div>
+            <div><label for="{{ form.dataset_type.id_for_label }}">{{ form.dataset_type.label }}</label>{{ form.dataset_type }}</div>
+
+            <!-- Container for dynamically loaded ProcessDataForm-->
+            <div id="process-dataset-form-container"></div>
+
+            <button type="submit">Save to database</button>
+        </form>
+
+        <!-- JavaScript for handling chosen dataset form and AJAX-->
+        <script type="text/javascript">
+            $(document).ready(function() {
+                $('input[name="dataset_form"]').change(function() {
+                    var datasetForm = $(this).val();
+                    $.ajax({
+                        url: "{% url 'update_process_data_form' %}",
+                        method: "POST",
+                        data: {
+                            'dataset_form': datasetForm,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data) {
+                            // Fills the container with the relevant model type html
+                            $('#process-dataset-form-container').html(data.process_dataset_form_html);
+                            // Evaluate the script within the inserted HTML
+                            $('#process-dataset-form-container').find('script').each(function(){
+                                $.globalEval(this.text || this.textContent || this.innerHTML || '');
+                            });
+                        }
+                    });
+                });
+            });
+        </script>
+    {% endif %}
+{% endblock %}

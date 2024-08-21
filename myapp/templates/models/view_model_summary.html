@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Model summary{% endblock %}
+{% block header %}Model summary: {{ model_metadata.title }}{% endblock %}
+
+{% block content %}
+    <pre>{{ model_summary }}</pre>
+    
+    <h3>Model Optimizer</h3>
+    <p>{{ optimizer }}</p>
+
+    <h3>Model Loss Function</h3>
+    <p>{{ loss }}</p>
+
+    <h3>Model Metrics</h3>
+    <ul>
+        {% for metric in metrics %}
+            <li>{{ metric }}</li>
+        {% endfor %}
+    </ul>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete dataset{% endblock %}
+{% block header %}Delete dataset{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <p>Are you sure you want to delete the dataset titled "{{ dataset.title }}"?</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit">Yes, delete</button>
+            <a href="{% url 'view_datasets' %}">Cancel</a>
+        </form>
+    {% endif %}
+{% endblock %}

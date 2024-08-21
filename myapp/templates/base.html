@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}My website title{% endblock %}</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <header><h1>{% block header %}My website header{% endblock %}</h1></header>
+    <main>{% block content %}{% endblock %}</main>
+</body>
+
+<footer>
+    {% block footer %}
+        <a href="{% url 'home' %}">Home</a>
+        {% if user.is_authenticated %}
+            <form id="logout-form" action="{% url 'logout' %}" method="POST">
+                <button type="submit">log out</button>
+                {% csrf_token %}
+            </form>
+        {% else %}
+            <p><a href="{% url 'login' %}">Log in</a> or <a href="{% url 'signup' %}">sign up</a></p>
+        {% endif %}
+
+
+    {% endblock %}
+</footer>
+</html>

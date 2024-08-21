@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete model{% endblock %}
+{% block header %}Delete model{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <p>Are you sure you want to delete the model titled "{{ model.title }}"?</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit">Yes, delete</button>
+            <a href="{% url 'view_models' %}">Cancel</a>
+        </form>
+    {% endif %}
+{% endblock %}
