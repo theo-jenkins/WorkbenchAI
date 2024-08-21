@@ -38,6 +38,7 @@ def upload_file(file):
         with open(file_path, 'wb+') as destination:
             for chunk in file.chunks():
                 destination.write(chunk)
+                
         # Handles .zip files
         if file.name.endswith('.zip'):
             with zipfile.ZipFile(file_path, 'r') as zip_ref:

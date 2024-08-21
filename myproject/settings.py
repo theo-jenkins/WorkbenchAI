@@ -25,7 +25,7 @@ LOGIN_URL = 'login'
 # User uploaded files
 USER_ROOT = os.path.join(BASE_DIR, 'uploaded_files')
 USER_URL = '/user/'
-# Keras model directory
+# Tensorflow model directory
 MODEL_ROOT = os.path.join(BASE_DIR, 'nn_models')
 MODEL_URL = '/models/'
 # Figures directory

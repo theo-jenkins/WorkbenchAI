@@ -2,22 +2,18 @@ from django.db import models, connection, DatabaseError
 from django.apps import apps
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from .form_choices import ACCOUNT_TYPE_CHOICES
 import uuid
-import re
 import pandas as pd
 
 class CustomUser(AbstractUser):
     user_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     first_name = models.CharField(max_length=30)
     email = models.EmailField(max_length=255, unique=True)
-    TYPE_CHOICES = [
-        ('farmer', 'Farmer'),
-        ('developer', 'Developer'),
-    ]
-    type = models.CharField(max_length=50, choices=TYPE_CHOICES, default='developer')
+    type = models.CharField(max_length=50, choices=ACCOUNT_TYPE_CHOICES, default='developer')
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name']
+    REQUIRED_FIELDS = ['first_name', 'type']
 
     def __str__(self):
         return self.email
@@ -29,7 +25,7 @@ class Metadata(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     file_path = models.CharField(max_length=255)
-    form = models.CharField(max_length=50) # 'tabular', 'ts', 'sequential', 'xgboost'
+    form = models.CharField(max_length=50) # 'tabular', 'ts', 'sequential'
     tag = models.CharField(max_length=50) # 'features', 'outputs', 'untrained', 'trained'
 
     class Meta:

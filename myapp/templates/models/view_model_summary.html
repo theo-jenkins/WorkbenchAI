@@ -6,26 +6,17 @@
 
 {% block content %}
     <pre>{{ model_summary }}</pre>
-        
-    <h2>Layers Information</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Layer Name</th>
-                <th>Input Shape</th>
-                <th>Output Shape</th>
-                <th>Number of Parameters</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for layer in model_layers %}
-            <tr>
-                <td>{{ layer.name }}</td>
-                <td>{{ layer.input_shape }}</td>
-                <td>{{ layer.output_shape }}</td>
-                <td>{{ layer.num_params }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    
+    <h3>Model Optimizer</h3>
+    <p>{{ optimizer }}</p>
+
+    <h3>Model Loss Function</h3>
+    <p>{{ loss }}</p>
+
+    <h3>Model Metrics</h3>
+    <ul>
+        {% for metric in metrics %}
+            <li>{{ metric }}</li>
+        {% endfor %}
+    </ul>
 {% endblock %}

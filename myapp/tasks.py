@@ -95,8 +95,12 @@ def clean_column_names(columns):
 
 # Function to clean data by replacing erroneous values with zero
 def handle_missing(df):
+    INVALID_ENTRY = [
+        '?',
+        '-9999'
+    ]
     # Replace -9999 with zero
-    df.replace(-9999, 0, inplace=True)
+    df.replace(INVALID_ENTRY, 0, inplace=True)
     # Convert all values to floats and set non-numeric values to NaN
     df.apply(pd.to_numeric, errors='coerce')
     # Replace missing values with zero

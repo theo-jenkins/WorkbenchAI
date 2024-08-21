@@ -39,7 +39,7 @@ def fetch_sample_dataset(title, sample_size):
         print(f'An error occurred: {e}')
         return None, None
 
-# Function that saves the metadata of a dataset or model
+# Function that saves the metadata of a dataset, model or figure
 def save_metadata(title, comment, user, file_path, form, tag):
     # Django automatically generates a unique ID
     metadata = Metadata.objects.create(

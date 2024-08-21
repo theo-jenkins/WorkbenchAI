@@ -332,10 +332,9 @@ def update_train_model_form(request):
     else:
         # If dataset forms do not match, return an informative error message
         error_message = (
-            f'Dataset forms do not match. '
+            'Please select datasets with matching forms. '
             f'Feature dataset form: {feature_metadata.form}, '
-            f'Training dataset form: {training_metadata.form}. '
-            'Please select datasets with matching forms.'
+            f'Training dataset form: {training_metadata.form}. '            
         )
         print(error_message)
         return JsonResponse({'error': error_message})

@@ -1,3 +1,6 @@
+ACCOUNT_TYPE_CHOICES = [
+    ('developer', 'Developer'),
+]
 FEATURE_ENG_CHOICES = [
     ('date_col', 'Convert to datetime object'),
     ('unique', 'Unique ID'),

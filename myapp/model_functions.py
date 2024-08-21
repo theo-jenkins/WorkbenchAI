@@ -17,7 +17,6 @@ def build_sequential_model(title, user, comment, layer_types, input_shape, nodes
     model = Sequential()
     
     # Add an input layer
-    print(f'input_shape: {input_shape}')
     model.add(Input(shape=input_shape))
 
     # Correctly initializing the input layer

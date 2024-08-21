@@ -5,15 +5,12 @@ import shutil
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login
-from django.contrib.auth.models import User
 from django.http import HttpResponseForbidden
 from django.conf import settings
-from django.urls import reverse
 from keras.models import load_model
 from contextlib import redirect_stdout
 from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, TrainModelForm
 from .models import CustomUser, Metadata
-from .tasks import train_model
 from .site_functions import get_latest_commit_info, upload_file
 from .db_functions import fetch_sample_dataset
 from .model_functions import load_training_history, plot_metrics
@@ -181,22 +178,18 @@ def view_model(request, model_id):
     with io.StringIO() as buf, redirect_stdout(buf):
         model.summary()
         model_summary = buf.getvalue()
-    
-    # Extract layer information
-    model_layers = []
-    for layer in model.layers:
-        layer_info = {
-            'name': layer.name,
-            'input_shape': layer.input_shape if hasattr(layer, 'input_shape') else None,
-            'output_shape': layer.output_shape if hasattr(layer, 'output_shape') else None,
-            'num_params': layer.count_params()
-        }
-        model_layers.append(layer_info)
+
+    # Extract optimizer, loss function, and metrics
+    optimizer = model.optimizer.__class__.__name__ if model.optimizer else "No optimizer found"
+    loss = model.loss if model.loss else "No loss function found"
+    metrics = [metric.name if hasattr(metric, 'name') else str(metric) for metric in model.metrics] if model.metrics else ["No metrics found"]
     
     context = {
         'model_metadata': model_metadata,
         'model_summary': model_summary,
-        'model_layers': model_layers,
+        'optimizer': optimizer,
+        'loss': loss,
+        'metrics': metrics,
     }
     
     return render(request, 'models/view_model_summary.html', context)
