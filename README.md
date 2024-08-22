@@ -28,8 +28,13 @@ A powerful web application that allows users to build and train neural networks.
 
 2. **Create a virtual environment and activate it**:
    ```bash
+<<<<<<< HEAD
    python -m venv env
    source env/bin/activate  # On Windows use `env\Scripts\activate`
+=======
+   python -m venv mynnenv # Maybe 'python3'
+   source mynnenv/bin/activate  # On Windows use `env\Scripts\activate`
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
    ```
 
 3. **Install dependencies**:

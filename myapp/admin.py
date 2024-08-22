@@ -7,7 +7,12 @@ class CustomUserAdmin(UserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = CustomUser
+<<<<<<< HEAD
     list_display = ['username', 'email', 'first_name', 'user_id', 'type', 'is_staff', 'is_active']
+=======
+    ordering = ['email']
+    list_display = ['email', 'first_name', 'user_id', 'type', 'is_staff', 'is_active']
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
     
     #Adds additional fields to display in the admin list view
     fieldsets = UserAdmin.fieldsets + (

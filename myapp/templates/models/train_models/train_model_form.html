@@ -5,6 +5,14 @@
 
 {% block content %}
     {% if user.is_authenticated %}
+<<<<<<< HEAD
+=======
+        {% if message %}
+        <h3 style="color:red">
+            {{ message }}
+        </h3>
+        {% endif %}
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
         <form id="train-model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_train_model_form' %}">
             {% csrf_token %}
 

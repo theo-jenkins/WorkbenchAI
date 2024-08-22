@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from django.conf import settings
+import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, LSTM, GRU
@@ -133,3 +134,13 @@ def prepare_model(model_id):
         print(f'Model loaded: {model_metadata.title}')
         
     return model
+
+def fetch_gpu_info():
+    # Check for GPU availability
+    gpus = tf.config.list_physical_devices('GPU')
+    if gpus:
+        message = (f'GPU(s) detected.')
+    else:
+        message = 'No GPUs detected. The model will use the CPU for training.'
+
+    return message

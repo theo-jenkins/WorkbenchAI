@@ -13,7 +13,11 @@ from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationF
 from .models import CustomUser, Metadata
 from .site_functions import get_latest_commit_info, upload_file
 from .db_functions import fetch_sample_dataset
+<<<<<<< HEAD
 from .model_functions import load_training_history, plot_metrics
+=======
+from .model_functions import load_training_history, plot_metrics, fetch_gpu_info
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
 
 # View for the users dashboard
 def home(request):
@@ -102,11 +106,19 @@ def build_model_form(request):
 
 # View that renders the initial train model form
 def train_model_form(request):
+<<<<<<< HEAD
+=======
+    message = fetch_gpu_info()
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
     else:
         form = TrainModelForm()
+<<<<<<< HEAD
     return render(request, 'models/train_models/train_model_form.html', {'form': form})
+=======
+    return render(request, 'models/train_models/train_model_form.html', {'form': form, 'message': message})
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
 
 # View the feature and output datasets created by the signed in user
 def view_datasets(request):

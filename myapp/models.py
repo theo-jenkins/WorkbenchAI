@@ -10,6 +10,10 @@ class CustomUser(AbstractUser):
     user_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     first_name = models.CharField(max_length=30)
     email = models.EmailField(max_length=255, unique=True)
+<<<<<<< HEAD
+=======
+    username = None # Removes the username field
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
     type = models.CharField(max_length=50, choices=ACCOUNT_TYPE_CHOICES, default='developer')
 
     USERNAME_FIELD = 'email'

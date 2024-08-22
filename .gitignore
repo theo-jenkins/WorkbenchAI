@@ -1,3 +1,22 @@
+<<<<<<< HEAD
 uploaded_files/
 nn_models/
 figures/
+=======
+# Exclude the virtual environment
+mynnenv/
+
+# Exclude uploaded files, models, and figures directories
+myapp/uploaded_files/
+myapp/nn_models/
+myapp/figures/
+
+# Exclude Python bytecode and cache files
+__pycache__/
+*.py[cod]
+
+# Exclude common editor or OS-specific files
+.vscode/
+.DS_Store
+Thumbs.db
+>>>>>>> 46fba10547ff24329eb05753ad212473396d05c4

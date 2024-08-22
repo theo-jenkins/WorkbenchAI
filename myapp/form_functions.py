@@ -336,7 +336,6 @@ def update_train_model_form(request):
             f'Feature dataset form: {feature_metadata.form}, '
             f'Training dataset form: {training_metadata.form}. '            
         )
-        print(error_message)
         return JsonResponse({'error': error_message})
 
 # Function that handles the logic for the train model form
