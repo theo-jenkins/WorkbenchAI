@@ -4,7 +4,46 @@ import numpy as np
 from django.db import models, connection
 from django.conf import settings
 from django.utils import timezone
-from .models import Metadata
+from .models import FileMetadata, DatasetMetadata, ModelMetadata
+
+# Function that saves the file metadata
+def save_file_metadata(user, filename, file_path, format):
+    metadata = FileMetadata.objects.create(
+        filename=filename,
+        file_path=file_path,
+        user=user,
+        format=format,
+        uploaded_at=timezone.now(),
+    )
+    return metadata
+
+# Function that saves the dataset metadata
+def save_dataset_metadata(user, title, comment, form, tag):
+    # Django automatically generates a unique ID
+    metadata = DatasetMetadata.objects.create(
+        title=title,
+        comment=comment,
+        user=user,
+        created_at=timezone.now(),
+        form=form,
+        tag=tag,
+    )
+    return metadata
+
+# Function that saves the model metadata
+def save_model_metadata(user, title, comment, file_path, tag, form, version):
+    # Django automatically generates a unique ID
+    metadata = ModelMetadata.objects.create(
+        title=title,
+        comment=comment,
+        user=user,
+        created_at=timezone.now(),
+        file_path=file_path,
+        tag=tag,
+        form=form,
+        version=version,
+    )
+    return metadata
 
 # Function that gets the columns from the db of type float
 def get_float_columns(db):
@@ -39,24 +78,38 @@ def fetch_sample_dataset(title, sample_size):
         print(f'An error occurred: {e}')
         return None, None
 
-# Function that saves the metadata of a dataset, model or figure
-def save_metadata(title, comment, user, file_path, form, tag):
-    # Django automatically generates a unique ID
-    metadata = Metadata.objects.create(
-        title=title,
-        comment=comment,
-        user=user,
-        file_path=file_path,
-        created_at=timezone.now(),
-        form=form,
-        tag=tag,
-    )
-    return metadata
-
 # Function to retrieve a table from the db and return as df
-def load_sqlite_table(db_path, table_name):
+def load_sqlite_table(db_path, table_name, fetch='all', start_row=None, end_row=None, return_headers=False): 
+    """
+    Load data from an SQLite table with options for fetching all rows, a subset of rows, or just the headers.
+
+    Args:
+    - db_path: str, path to the SQLite database file.
+    - table_name: str, name of the table to load data from.
+    - fetch: str, options are 'all', 'range', 'headers'. Determines what data to fetch.
+    - start_row: int, starting row for fetching a subset (optional, used with 'range').
+    - end_row: int, ending row for fetching a subset (optional, used with 'range').
+    - return_headers: bool, if True, only the headers (column names) are returned.
+
+    Returns:
+    - pd.DataFrame or list: DataFrame of the table data, or a list of column names if return_headers is True.
+    """
+    # Connect to the SQLite database
     conn = sqlite3.connect(db_path)
-    query = f'SELECT * FROM "myapp_{table_name}"'
+
+    # Create a SQL query based on the fetch type
+    if fetch == 'headers' and return_headers:
+        query = f'PRAGMA table_info("myapp_{table_name}")'
+        headers = pd.read_sql(query, conn)['name'].tolist()
+        conn.close()
+        return headers
+    
+    elif fetch == 'range' and start_row is not None and end_row is not None:
+        query = f'SELECT * FROM "myapp_{table_name}" LIMIT {end_row - start_row} OFFSET {start_row}'
+    else:
+        query = f'Select * FROM "myapp_{table_name}"'
+
+    # Load the data into a DataFrame
     df = pd.read_sql_query(query, conn)
     # Drop the first column (ID column)
     df = df.iloc[:, 1:]
@@ -66,11 +119,12 @@ def load_sqlite_table(db_path, table_name):
 # Function that returns the input shape of a dataset for training a keras model
 def get_input_shape(dataset_id):
     try:
-        dataset_metadata = Metadata.objects.get(id=dataset_id)
-    except Metadata.DoesNotExist:
+        dataset_metadata = DatasetMetadata.objects.get(id=dataset_id)
+    except DatasetMetadata.DoesNotExist:
         return None
     try:
-        dataset = load_sqlite_table(dataset_metadata.file_path, dataset_metadata.title)
+        db_file_path = get_db_file_path()
+        dataset = load_sqlite_table(db_file_path, dataset_metadata.title, fetch='all')
     except Exception as e:
         print(f'Error loading SQLite tables: {e}')
 
@@ -99,17 +153,18 @@ def merge_datetime(df, date_cols):
 def prepare_datasets(features_id, outputs_id, timesteps):
     # Fetches the dataset metadata
     try:
-        features_metadata = Metadata.objects.get(id=features_id)
-        outputs_metadata = Metadata.objects.get(id=outputs_id)
-    except Metadata.DoesNotExist:
+        features_metadata = DatasetMetadata.objects.get(id=features_id)
+        outputs_metadata = DatasetMetadata.objects.get(id=outputs_id)
+    except DatasetMetadata.DoesNotExist:
         print(f'Dataset metadata could not be found: {features_id}, {outputs_id}')
         return None
     
     # Load features and outputs from SQLite database
     features, outputs = None, None
+    db_file_path = get_db_file_path()
     try:
-        features = load_sqlite_table(features_metadata.file_path, features_metadata.title)
-        outputs = load_sqlite_table(outputs_metadata.file_path, outputs_metadata.title)
+        features = load_sqlite_table(db_file_path, features_metadata.title, fetch='all')
+        outputs = load_sqlite_table(db_file_path, outputs_metadata.title, fetch='all')
     except Exception as e:
         print(f'Error loading SQLite tables: {e}')
 

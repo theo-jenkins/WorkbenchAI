@@ -2,22 +2,19 @@ import sqlite3
 import io
 import os
 import shutil
+from collections import defaultdict
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden,HttpResponseNotFound
 from django.conf import settings
 from keras.models import load_model
 from contextlib import redirect_stdout
-from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, TrainModelForm
-from .models import CustomUser, Metadata
-from .site_functions import get_latest_commit_info, upload_file
-from .db_functions import fetch_sample_dataset
-<<<<<<< HEAD
-from .model_functions import load_training_history, plot_metrics
-=======
-from .model_functions import load_training_history, plot_metrics, fetch_gpu_info
->>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
+from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, TrainModelForm, MakePredictionForm
+from .models import CustomUser, FileMetadata, DatasetMetadata, ModelMetadata
+from .site_functions import get_latest_commit_info, upload_file, get_file_choices, file_exists
+from .db_functions import fetch_sample_dataset, save_file_metadata, get_db_file_path
+from .model_functions import load_training_history, plot_metrics, fetch_gpu_info, load_features
 
 # View for the users dashboard
 def home(request):
@@ -42,7 +39,7 @@ def login(request):
                 return redirect('home')
             else:
                 # Add an error message if authentication fails
-                error_message = "Invalid username or password, user is none"
+                error_message = 'Invalid username or password, user is none'
                 return render(request, 'authentication/login.html', {'form': form, 'error_message': error_message})
         else:
             # Add an error message if authentication fails
@@ -71,29 +68,67 @@ def signup(request):
     return render(request, 'authentication/signup.html', {'form': form})
 
 # View that handles the upload_data logic
-# Functions: upload_file()
-def upload_data_form(request):
+def upload_files_form(request):
+    user = request.user
     if request.method == 'POST':
         form = UploadFileForm(request.POST, request.FILES) #Creates the upload file form instance
         files = request.FILES.getlist('file_field')
         if form.is_valid():
-            for file in files:
+            for uploaded_file in files:
                 try:
-                    upload_file(file)
+                    # Validate and save the file if it's unique
+                    if not file_exists(uploaded_file):
+                        file = upload_file(uploaded_file)
+                        if file:
+                            file_path = os.path.join(settings.USER_ROOT, file.name)
+                            save_file_metadata(user, file.name, file_path, 'csv')
+                    else:
+                        print(f"File {uploaded_file.name} already exists. Skipping upload.")
                 except ValidationError as e:
-                    form.add_error('file_field', e)
-                    return render(request, 'datasets/upload_data_form.html', {'form': form})
-            return redirect('home')
+                    return render(request, 'uploads/upload_files_form.html', {'form': form})
+            return redirect('upload_files_form')
     else:
         form = UploadFileForm()
-    return render(request, 'datasets/upload_data_form.html', {'form': form})
+
+    user_files = get_file_choices(user)
+    return render(request, 'uploads/upload_files_form.html', {'form': form, 'files': user_files})
+
+# Function that deletes a user uploaded file
+def delete_file(request, file_id):
+    file_metadata = get_object_or_404(FileMetadata, id=file_id)
+    
+    # Check if the user is the owner of the file
+    if file_metadata.user != request.user:
+        return HttpResponseForbidden("You are not allowed to delete this file.")
+    
+    file_path = os.path.join(settings.MEDIA_ROOT, file_metadata.file_path)
+    if request.method == 'POST':
+        try:    
+            # Check if the file exists before attempting to delete it
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    return HttpResponseNotFound(f"Error occurred while trying to delete the file: {e}")
+            else:
+                return HttpResponseNotFound("File not found.")
+            
+            # Delete the file metadata from the database
+            file_metadata.delete()
+            return redirect('upload_files_form')
+        except Exception as e:
+            return HttpResponseNotFound(f"Error occurred while trying to delete the file: {e}")
+        
+    # Redirect back to the upload form page after deletion
+    return render(request, 'uploads/confirm_file_delete.html', {'file': file_metadata})
 
 # View that renders the initial process data form
 def process_data_form(request):
+    user = request.user
     if request.method == 'POST':
-        form = ProcessDataForm(request.POST)
+        form = ProcessDataForm(request.POST, user=user)
     else:
-        form = ProcessDataForm()
+        form = ProcessDataForm(user=user)
     return render(request, 'datasets/process_data_form.html', {'form': form})
 
 # View that renders the initial build model form
@@ -106,25 +141,18 @@ def build_model_form(request):
 
 # View that renders the initial train model form
 def train_model_form(request):
-<<<<<<< HEAD
-=======
     message = fetch_gpu_info()
->>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
     if request.method == 'POST':
         form = TrainModelForm(request.POST)
     else:
         form = TrainModelForm()
-<<<<<<< HEAD
-    return render(request, 'models/train_models/train_model_form.html', {'form': form})
-=======
     return render(request, 'models/train_models/train_model_form.html', {'form': form, 'message': message})
->>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
 
 # View the feature and output datasets created by the signed in user
 def view_datasets(request):
     user = request.user
-    feature_datasets = Metadata.objects.filter(user=user, tag='features')
-    output_datasets = Metadata.objects.filter(user=user, tag='outputs')
+    feature_datasets = DatasetMetadata.objects.filter(user=user, tag='features')
+    output_datasets = DatasetMetadata.objects.filter(user=user, tag='outputs')
     user_datasets = feature_datasets | output_datasets
     context = {
         'datasets': user_datasets
@@ -134,7 +162,7 @@ def view_datasets(request):
 
 # View an individual dataset
 def view_dataset(request, dataset_id):
-    dataset_metadata = get_object_or_404(Metadata, id=dataset_id)
+    dataset_metadata = get_object_or_404(DatasetMetadata, id=dataset_id)
     if dataset_metadata.user != request.user:
         return HttpResponseForbidden
     
@@ -145,13 +173,14 @@ def view_dataset(request, dataset_id):
 
 # View to handle the delete dataset logic
 def delete_dataset(request, dataset_id):
-    dataset_metadata = get_object_or_404(Metadata, id=dataset_id)
+    dataset_metadata = get_object_or_404(DatasetMetadata, id=dataset_id)
     if dataset_metadata.user != request.user:
         return HttpResponseForbidden()
     if request.method == 'POST':
         try:
             # Connect to the SQLite database
-            conn = sqlite3.connect(dataset_metadata.file_path)
+            db_file_path = get_db_file_path()
+            conn = sqlite3.connect(db_file_path)
             cursor = conn.cursor()
             # Drop the table
             table_name = f'myapp_{dataset_metadata.title}'
@@ -170,20 +199,21 @@ def delete_dataset(request, dataset_id):
 
 # View the trained and untrained models created by the signed in user
 def view_models(request):
+    # View all user created models sorted by title
     user = request.user
-    untrained_models = Metadata.objects.filter(user=user, tag='untrained')
-    trained_models = Metadata.objects.filter(user=user, tag='trained')
-    user_models = untrained_models | trained_models
+    models = ModelMetadata.objects.filter(user=user).order_by('title')
+
     context = {
-        'models': user_models
+        'models': models
     }
     return render(request, 'models/view_models.html', context)
 
 # View the metrics of a model
 def view_model(request, model_id):
-    model_metadata = get_object_or_404(Metadata, id=model_id)
+    model_metadata = get_object_or_404(ModelMetadata, id=model_id)
     if model_metadata.user != request.user:
         return HttpResponseForbidden
+    
     model = load_model(model_metadata.file_path)
     
     # Capture the model summary as a string
@@ -192,44 +222,53 @@ def view_model(request, model_id):
         model_summary = buf.getvalue()
 
     # Extract optimizer, loss function, and metrics
-    optimizer = model.optimizer.__class__.__name__ if model.optimizer else "No optimizer found"
-    loss = model.loss if model.loss else "No loss function found"
-    metrics = [metric.name if hasattr(metric, 'name') else str(metric) for metric in model.metrics] if model.metrics else ["No metrics found"]
+    optimizer = model.optimizer.__class__.__name__ if model.optimizer else 'No optimizer found'
+    loss = model.loss if model.loss else 'No loss function found'
     
     context = {
         'model_metadata': model_metadata,
         'model_summary': model_summary,
         'optimizer': optimizer,
         'loss': loss,
-        'metrics': metrics,
     }
     
     return render(request, 'models/view_model_summary.html', context)
 
 # View to handle the delete model logic
 def delete_model(request, model_id):
-    model_metadata = get_object_or_404(Metadata, id=model_id)
+    model_metadata = get_object_or_404(ModelMetadata, id=model_id)
     if model_metadata.user != request.user:
         return HttpResponseForbidden
     
-    tag = model_metadata.tag
     title = model_metadata.title
-    model_file_path = os.path.join(settings.MODEL_ROOT, tag, title)
+    model_version_dir = os.path.join(settings.MODEL_ROOT, title, f'Version_{model_metadata.version}')
     figures_dir_path = os.path.join(settings.FIGURES_ROOT, title)
+    model_dir_path = os.path.join(settings.MODEL_ROOT, title)
     
     if request.method == 'POST':
         try:
-            # Remove model file if it exists
-            if os.path.exists(model_file_path):
-                shutil.rmtree(model_file_path)
+            # Remove model version directory if it exists
+            if os.path.exists(model_version_dir):
+                shutil.rmtree(model_version_dir)
+                print(f'Removed model version directory: {model_version_dir}')
             else:
-                print(f'Model file {model_file_path} does not exist.')
+                print(f'Model version directory {model_version_dir} does not exist.')
             
             # Remove figures directory if it exists
             if os.path.exists(figures_dir_path):
                 shutil.rmtree(figures_dir_path)
+                print(f'Removed figures directory: {figures_dir_path}')
             else:
                 print(f'Figures directory {figures_dir_path} does not exist.')
+            
+            # Check if any other versions of the model still exist
+            remaining_versions = os.listdir(model_dir_path)
+            if not remaining_versions:
+                # If no other versions exist, remove the entire model directory
+                shutil.rmtree(model_dir_path)
+                print(f'Removed model directory: {model_dir_path}')
+            else:
+                print(f'Remaining versions found: {remaining_versions}')
             
             # Delete model metadata from the database
             model_metadata.delete()
@@ -243,15 +282,25 @@ def delete_model(request, model_id):
 # View the models training history, loss and accuracy
 def evaluate_model(request, model_id):
     # Fetches the model metadata object
-    model_metadata = get_object_or_404(Metadata, id=model_id)
+    model_metadata = get_object_or_404(ModelMetadata, id=model_id)
     if model_metadata.user != request.user:
         return HttpResponseForbidden
     
     # Fetches the models history as a plot
     model_title = model_metadata.title
-    history = load_training_history(model_title)
-    fig_url = plot_metrics(model_title, history)
+    model_version = model_metadata.version
+    history = load_training_history(model_title, model_version)
+    fig_url = plot_metrics(model_title, model_version, history)
 
     return render(request, 'models/evaluate_model.html', {'fig_url': fig_url})
 
+# View the make prediction screen
+def make_prediction_view(request):
+    user = request.user
 
+    if request.method == 'POST':
+        form = MakePredictionForm(request.POST, user=user)
+    else:
+        form = MakePredictionForm(user=user)
+    
+    return render(request, 'models/make_prediction_form.html', {'form': form})

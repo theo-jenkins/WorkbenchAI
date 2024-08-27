@@ -10,10 +10,7 @@ class CustomUser(AbstractUser):
     user_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     first_name = models.CharField(max_length=30)
     email = models.EmailField(max_length=255, unique=True)
-<<<<<<< HEAD
-=======
     username = None # Removes the username field
->>>>>>> 46fba10547ff24329eb05753ad212473396d05c4
     type = models.CharField(max_length=50, choices=ACCOUNT_TYPE_CHOICES, default='developer')
 
     USERNAME_FIELD = 'email'
@@ -22,15 +19,45 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.email
 
-class Metadata(models.Model):
+class FileMetadata(models.Model):
+    filename = models.CharField(max_length=255, unique=True)
+    unique_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    file_path = models.CharField(max_length=255)
+    format = models.CharField(max_length=50) # 'csv', 'zip'
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return self.filename
+
+class DatasetMetadata(models.Model):
+    title = models.CharField(max_length=255)
+    comment = models.TextField(blank=True, null=True)
+    unique_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    form = models.CharField(max_length=50) # 'tabular', 'ts'
+    tag = models.CharField(max_length=50) # 'features', 'outputs'
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+    
+class ModelMetadata(models.Model):
     title = models.CharField(max_length=255)
     comment = models.TextField(blank=True, null=True)
     unique_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     file_path = models.CharField(max_length=255)
-    form = models.CharField(max_length=50) # 'tabular', 'ts', 'sequential'
-    tag = models.CharField(max_length=50) # 'features', 'outputs', 'untrained', 'trained'
+    tag = models.CharField(max_length=50) # 'untrained', 'trained'
+    form = models.CharField(max_length=50) # 'sequential', 'xgboost', 'mamba'
+    version = models.DecimalField( max_digits=5, decimal_places=2) # >1.0 indicates a trained model
 
     class Meta:
         ordering = ['-created_at']

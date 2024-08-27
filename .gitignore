@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-uploaded_files/
-nn_models/
-figures/
-=======
 # Exclude the virtual environment
 mynnenv/
 
@@ -19,4 +14,3 @@ __pycache__/
 .vscode/
 .DS_Store
 Thumbs.db
->>>>>>> 46fba10547ff24329eb05753ad212473396d05c4

@@ -8,13 +8,15 @@ from django.conf import settings
 from django.db import transaction, DatabaseError
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from .db_functions import merge_datetime
+from .models import FileMetadata
 
 # Function that creates a custom dataset as a dataframe
-def create_custom_dataset(file_paths, features, start_row, end_row, feature_eng_choices, aggregation_method):
+def create_custom_dataset(file_ids, features, start_row, end_row, feature_eng_choices, aggregation_method):
     # Initialise an empty list to hold dataframes
     dataframes = []
 
     # Loop through each file and read it as DataFrame
+    file_paths = FileMetadata.objects.filter(id__in=file_ids).values_list('file_path', flat=True)
     for file_path in file_paths:
         full_path = os.path.join(settings.USER_ROOT, file_path)
         chunk_iter = pd.read_csv(full_path, usecols=features, chunksize=100000)
@@ -158,3 +160,4 @@ def train_model(features, output, model, batch_size, epochs, verbose, validation
                     verbose=verbose,
                     validation_split=validation_split)
     return history, model
+

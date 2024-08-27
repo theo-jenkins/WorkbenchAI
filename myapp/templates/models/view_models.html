@@ -16,6 +16,7 @@
                         <th>Created at</th>
                         <th>Form</th>
                         <th>Tag</th>
+                        <th>Version</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -28,12 +29,13 @@
                         <td>{{ model.created_at }}</td>
                         <td>{{ model.form }}</td>
                         <td>{{ model.tag }}</td>
+                        <td>{{ model.version }}</td>
                         <td>
-                            <a href="{% url 'view_model' model.id %}">View</a>
-                            <a href="{% url 'delete_model' model.id %}">Delete</a>
-                            {% if model.tag == 'trained' %}
-                                <a href="{% url 'evaluate_model' model.id %}">Evaluate</a>
+                            {% if model.version != 0.0 %}
+                                <a href="{% url 'evaluate_model' model.id %}">Evaluate</a><br>
                             {% endif %}
+                            <a href="{% url 'view_model' model.id %}">View</a><br>
+                            <a href="{% url 'delete_model' model.id %}">Delete</a><br>
                         </td>
                     </tr>
                     {% endfor %}

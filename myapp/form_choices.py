@@ -3,7 +3,6 @@ ACCOUNT_TYPE_CHOICES = [
 ]
 FEATURE_ENG_CHOICES = [
     ('date_col', 'Convert to datetime object'),
-    ('unique', 'Unique ID'),
     ('handle_missing', 'Handle missing values'),
     ('normalize', 'Normalize'),
     ('standardize', 'Standardize'),
@@ -26,6 +25,7 @@ AGGREGATION_FREQUENCY_CHOICES = [
 MODEL_FORM_CHOICES = [
     ('sequential', 'Sequential'),
     ('xgboost', 'XGBoost'),
+    ('mamba', 'Mamba SSM'),
 ]
 LAYER_TYPE_CHOICES = [
     ('dense', 'Dense (Fully Connected)'),

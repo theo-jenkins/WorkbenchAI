@@ -4,6 +4,19 @@ import subprocess
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from .db_functions import save_file_metadata
+from .models import FileMetadata
+
+# Function that returns the user uploaded files
+def get_file_choices(user):
+    user_files = FileMetadata.objects.filter(user=user)
+    return user_files
+
+# Function that checks if a file exists
+def file_exists(uploaded_file):
+    upload_dir = os.path.join(settings.USER_ROOT)
+    file_path = os.path.join(upload_dir, uploaded_file.name)
+    return os.path.exists(file_path)
 
 # Function that retrieves the latest git commit information
 def get_latest_commit_info():
@@ -48,27 +61,16 @@ def upload_file(file):
                         zip_info.filename = os.path.basename(zip_info.filename)  # Removes any directory structure
                         zip_ref.extract(zip_info, upload_dir)
             os.remove(file_path)  # Remove the .zip file after extraction
+            
         return file  # Return the file object for further use if needed
     except Exception as e:
         raise ValidationError("There was an error uploading the file. Please try again.")
     
-# Function that fetches the file names in the /uploaded_files folder
-# Returns a list of tuples
-def get_uploaded_files():
-    upload_dir = os.path.join(settings.USER_ROOT)
-    if not os.path.exists(upload_dir):
-        return []
-    
-    file_list = [
-        (file, os.path.relpath(os.path.join(root, file), upload_dir))
-        for root, _, files in os.walk(upload_dir)
-        for file in files
-    ]
-    return file_list
 
 # Function that finds the common columns between .csv files selected
 # Returns list of common columns
-def get_common_columns(file_paths):
+def get_common_columns(file_ids):
+    file_paths = FileMetadata.objects.filter(id__in=file_ids).values_list('file_path', flat=True)
     upload_dir = settings.USER_ROOT
     common_columns = None
     for file_path in file_paths:
@@ -88,21 +90,11 @@ def get_common_columns(file_paths):
 
 # Function finds the maximum rows in the .csv files selected
 # Returns a integer for end_rows
-def get_max_rows(file_paths):
-    upload_dir = settings.USER_ROOT
-    full_paths = []
+def get_max_rows(file_ids):
+    # Fetch the file paths associated with the selected file IDs
+    file_paths = FileMetadata.objects.filter(id__in=file_ids).values_list('file_path', flat=True)
 
-    # Traverse the directory to find all files
-    for root, _, files in os.walk(upload_dir):
-        for file in files:
-            if file in file_paths:
-                full_path = os.path.join(root, file)
-                full_paths.append(full_path)
-    
-    # Reads the .csv files and finds the maximum length
-    max_rows = 0
-    for full_path in full_paths:
-        df = pd.read_csv(full_path)
-        max_rows += len(df)
+    # Compute the total number of rows across all files
+    max_rows = sum(pd.read_csv(file_path).shape[0] for file_path in file_paths)
 
     return max_rows

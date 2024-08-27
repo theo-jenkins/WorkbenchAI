@@ -10,3 +10,7 @@ def get_item(dictionary, key):
 def get_dynamic_field(form, base_name, index):
     field_name = f'{base_name}_{index}'
     return form[field_name]
+
+@register.filter
+def get_field(form, field_name):
+    return form[field_name]

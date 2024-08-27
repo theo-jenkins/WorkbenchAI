@@ -2,8 +2,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm, AuthenticationForm
-from .models import CustomUser, Metadata
-from .site_functions import get_uploaded_files
+from .models import CustomUser, FileMetadata, DatasetMetadata, ModelMetadata
+from .model_functions import load_features
+from .site_functions import get_file_choices
 from .form_choices import FEATURE_ENG_CHOICES, DATASET_FORM_CHOICES, DATASET_TYPE_CHOICES, AGGREGATION_FREQUENCY_CHOICES, MODEL_FORM_CHOICES, LAYER_TYPE_CHOICES, ACTIVATION_TYPE_CHOICES, OPTIMIZER_CHOICES, LOSS_CHOICES, METRIC_CHOICES
 
 class CustomAuthenticationForm(AuthenticationForm):
@@ -69,8 +70,39 @@ class UploadFileForm(forms.Form):
         validators=[validate_file_extensions, validate_file_size],
     )
 
-class ProcessDataForm(forms.Form):
-    db_title = forms.CharField(
+class ProcessDataForm(forms.Form):    
+    def __init__(self, *args, **kwargs):
+        feature_count = kwargs.pop('feature_count', 1)
+        common_columns = kwargs.pop('common_columns', [])
+        user = kwargs.pop('user', None)        
+        
+        # Initialize the parent class
+        super(ProcessDataForm, self).__init__(*args, **kwargs)
+
+        # Set the choices for the file field
+        self.fields['files'].choices = self.get_user_file_choices(user)
+
+        # Dynamically add fields based on feature_count and common_columns
+        for i in range(feature_count):
+            self.fields[f'column_{i}'] = forms.ChoiceField(
+                required=True,
+                label=f'Feature {i}',
+                choices=[(col, col) for col in common_columns],
+            )
+            self.fields[f'feature_eng_{i}'] = forms.MultipleChoiceField(
+                widget=forms.CheckboxSelectMultiple,
+                required=False,
+                choices=FEATURE_ENG_CHOICES,
+                label=f'Feature Engineering Options {i}',
+            )
+    @staticmethod
+    def get_user_file_choices(user):
+        if user:
+            files = get_file_choices(user) 
+            return [(file.id, file.filename) for file in files] 
+        return []
+    
+    dataset_title = forms.CharField(
         required=True,
     )
     comment = forms.CharField(
@@ -87,38 +119,13 @@ class ProcessDataForm(forms.Form):
         choices=DATASET_TYPE_CHOICES,
         widget=forms.RadioSelect,
     )
-
-class ProcessTabularForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        feature_count = kwargs.pop('feature_count', 1)
-        common_columns = kwargs.pop('common_columns', [])
-        super(ProcessTabularForm, self).__init__(*args, **kwargs)
-
-        self.fields['files'].choices = self.get_file_choices()
-
-        for i in range(feature_count):
-            self.fields[f'column_{i}'] = forms.ChoiceField(
-                required=True,
-                label=f'Feature {i}',
-                choices=[(col, col) for col in common_columns],
-            )
-            self.fields[f'feature_eng_{i}'] = forms.MultipleChoiceField(
-                widget=forms.CheckboxSelectMultiple,
-                required=False,
-                choices=FEATURE_ENG_CHOICES,
-                label=f'Feature Engineering Options {i}',
-            )
-    @staticmethod
-    def get_file_choices():
-        files = get_uploaded_files()
-        return files
-    
     files = forms.MultipleChoiceField(
         widget=forms.CheckboxSelectMultiple,
         required=True,
     )
     start_row = forms.IntegerField(
         initial=0,
+        min_value=0,
     )
     end_row = forms.IntegerField(
         required=True,
@@ -130,58 +137,18 @@ class ProcessTabularForm(forms.Form):
     )
 
 class ProcessTimeSeriesForm(forms.Form):
-    def __init__(self, *args, **kwargs):
-        feature_count = kwargs.pop('feature_count', 1)
-        common_columns = kwargs.pop('common_columns', [])
-        super(ProcessTimeSeriesForm, self).__init__(*args, **kwargs)
-
-        self.fields['files'].choices = self.get_file_choices()
-
-        for i in range(feature_count):
-            self.fields[f'column_{i}'] = forms.ChoiceField(
-                required=True,
-                label=f'Feature {i}',
-                choices=[(col, col) for col in common_columns],
-            )
-            self.fields[f'feature_eng_{i}'] = forms.MultipleChoiceField(
-                widget=forms.CheckboxSelectMultiple,
-                required=False,
-                choices=FEATURE_ENG_CHOICES,
-                label=f'Feature Engineering Options {i}',
-            )
-    @staticmethod
-    def get_file_choices():
-        files = get_uploaded_files()
-        return files
-    
     aggregation_method = forms.ChoiceField(
         required=False,
         choices=AGGREGATION_FREQUENCY_CHOICES,
         widget=forms.RadioSelect,
     )
-    files = forms.MultipleChoiceField(
-        widget=forms.CheckboxSelectMultiple,
-        required=True,
-    )
-    start_row = forms.IntegerField(
-        initial=0,
-    )
-    end_row = forms.IntegerField(
-        required=True,
-    )
-    features = forms.IntegerField(
-        required=True,
-        initial=1,
-        min_value=1,
-    )
-
 
 class BuildModelForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super(BuildModelForm, self).__init__(*args, **kwargs)
 
         # Query for datasets tagged as 'features' or 'outputs'
-        feature_datasets = Metadata.objects.filter(tag='features')
+        feature_datasets = DatasetMetadata.objects.filter(tag='features')
 
         # Prepare choices as tuples (id, title)
         feature_choices = [(dataset.id, dataset.title) for dataset in feature_datasets]
@@ -279,11 +246,11 @@ class TrainModelForm(forms.Form):
         super(TrainModelForm, self).__init__(*args, **kwargs)
 
         # Query for datasets tagged as 'features' or 'outputs'
-        feature_datasets = Metadata.objects.filter(tag='features')
-        training_datasets = Metadata.objects.filter(tag='outputs')
+        feature_datasets = DatasetMetadata.objects.filter(tag='features')
+        training_datasets = DatasetMetadata.objects.filter(tag='outputs')
         
         # Query for models tagged as 'untrained'
-        untrained_models = Metadata.objects.filter(tag='untrained')
+        untrained_models = ModelMetadata.objects.filter(tag='untrained')
 
         # Prepare choices as tuples (id, title)
         feature_choices = [(dataset.id, dataset.title) for dataset in feature_datasets]
@@ -294,6 +261,11 @@ class TrainModelForm(forms.Form):
         self.fields['feature_dataset'].choices = feature_choices
         self.fields['training_dataset'].choices = training_choices
         self.fields['model'].choices = model_choices
+
+        # Set an initial value for the model title
+        if untrained_models.exists():
+            first_model = untrained_models.first()
+            self.fields['model_title'].initial = first_model.title
 
     model_title = forms.CharField(
         required=True,
@@ -362,4 +334,30 @@ class TrainTSModelForm(forms.Form):
         required=0,
     )
 
+# Function for making a prediction form
+class MakePredictionForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        model_id = kwargs.pop('model_id', None)
+        super(MakePredictionForm, self).__init__(*args, **kwargs)
 
+        # Dynamically add feature fields if model_id is provided
+        if model_id:
+            model_features = load_features(model_id)
+            for feature in model_features.keys():
+                self.fields[feature] = forms.FloatField(
+                    label=feature.capitalize(),
+                    required=False,
+                )
+
+        # Set up model choices from the model ids
+        models = ModelMetadata.objects.filter(tag='trained', user=user)
+        model_choices = [(model.id, f'{model.version}: {model.title}') for model in models]
+        self.fields['model'] = forms.ChoiceField(
+            required=True,
+            choices=model_choices,
+            label="Select Model"
+        )     
+
+        
+    
