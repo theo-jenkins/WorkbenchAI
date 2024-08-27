@@ -13,11 +13,13 @@
 
                 <button type="submit">Make Prediction</button>
             </form>
+
             <div id="prediction-container">
                 {% if prediction %}
                     <h3>Prediction: {{ prediction }}</h3>
                 {% endif %}
             </div>
+            
         </body>
         <script type="text/javascript">
             $(document).ready(function() {
