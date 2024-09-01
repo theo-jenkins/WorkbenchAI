@@ -1,13 +1,11 @@
-import os
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
 from django.template.loader import render_to_string
-from django.conf import settings
 from .forms import ProcessDataForm, ProcessTimeSeriesForm, BuildModelForm, BuildSequentialForm, TrainModelForm, TrainTSModelForm, TrainTabularModelForm, MakePredictionForm
-from .models import FileMetadata, DatasetMetadata, ModelMetadata, create_custom_db
+from .models import DatasetMetadata, ModelMetadata, create_custom_db
 from .site_functions import get_max_rows, get_common_columns
-from .db_functions import get_db_file_path, fetch_sample_dataset, prepare_datasets, save_dataset_metadata
+from .db_functions import fetch_sample_dataset, prepare_datasets, save_dataset_metadata
 from .model_functions import build_sequential_model, prepare_model, save_sequential_model, plot_metrics, load_features, prepare_features, get_max_version
 from .tasks import create_custom_dataset, create_model_instances, train_model
 
@@ -94,7 +92,8 @@ def handle_process_data_form(request):
             if dataset_form == 'ts':
                 # Handle timeseries form choices
                 form = ProcessTimeSeriesForm(request.POST)
-                aggregation_method = fetch_ts_form_choices(form)
+                if form.is_valid():
+                    aggregation_method = fetch_ts_form_choices(form)
             if dataset_form == 'tabular':
                 aggregation_method = None # No aggreagation needed for tabular data
 

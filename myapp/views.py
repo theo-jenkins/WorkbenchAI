@@ -2,19 +2,17 @@ import sqlite3
 import io
 import os
 import shutil
-from collections import defaultdict
 from django.core.exceptions import ValidationError
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login as auth_login
 from django.http import HttpResponseForbidden,HttpResponseNotFound
 from django.conf import settings
-from keras.models import load_model
 from contextlib import redirect_stdout
 from .forms import UploadFileForm, CustomAuthenticationForm, CustomUserCreationForm, ProcessDataForm, BuildModelForm, TrainModelForm, MakePredictionForm
 from .models import CustomUser, FileMetadata, DatasetMetadata, ModelMetadata
 from .site_functions import get_latest_commit_info, upload_file, get_file_choices, file_exists
 from .db_functions import fetch_sample_dataset, save_file_metadata, get_db_file_path
-from .model_functions import load_training_history, plot_metrics, fetch_gpu_info, load_features
+from .model_functions import load_training_history, plot_metrics, fetch_gpu_info, prepare_model
 
 # View for the users dashboard
 def home(request):
@@ -71,7 +69,7 @@ def signup(request):
 def upload_files_form(request):
     user = request.user
     if request.method == 'POST':
-        form = UploadFileForm(request.POST, request.FILES) #Creates the upload file form instance
+        form = UploadFileForm(request.POST, request.FILES) # Creates the upload file form instance
         files = request.FILES.getlist('file_field')
         if form.is_valid():
             for uploaded_file in files:
@@ -214,7 +212,7 @@ def view_model(request, model_id):
     if model_metadata.user != request.user:
         return HttpResponseForbidden
     
-    model = load_model(model_metadata.file_path)
+    model = prepare_model(model_metadata.id) 
     
     # Capture the model summary as a string
     with io.StringIO() as buf, redirect_stdout(buf):

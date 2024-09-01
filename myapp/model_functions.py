@@ -15,6 +15,26 @@ from .models import DatasetMetadata, ModelMetadata
 
 # Function that builds a keras neural network
 def build_sequential_model(title, user, comment, feature_dataset_id, layer_types, nodes, activations, optimizer, loss, metrics):
+    """
+    Build a sequential neural network model using Keras based on the specified layers, nodes, and activation functions.
+    Calls the 'save_sequential_model' function to save the model to the database.
+
+    Args:
+    - title: str, the title/name of the model.
+    - user: User, the user who is building the model.
+    - comment: str, any additional comments or notes related to the model.
+    - feature_dataset_id: int, ID of the dataset used for input features.
+    - layer_types: list of str, specifies the type of each layer (e.g., 'dense', 'LSTM', 'GRU').
+    - nodes: list of int, specifies the number of nodes/units in each layer.
+    - activations: list of str, specifies the activation function for each layer.
+    - optimizer: str, the optimizer to use when compiling the model (e.g., 'adam', 'sgd').
+    - loss: str, the loss function to use when compiling the model (e.g., 'mse', 'categorical_crossentropy').
+    - metrics: list of str, the metrics to track during training (e.g., ['accuracy', 'mae']).
+
+    Returns:
+    - model: Keras Model object, the compiled neural network model.
+    - model_id: int, the unique identifier for the saved model.
+    """
     # Defines our model type
     model = Sequential()
     
@@ -49,6 +69,23 @@ def build_sequential_model(title, user, comment, feature_dataset_id, layer_types
 
 # Function that saves a keras model based on if its trained or untrained
 def save_sequential_model(title, model, history, feature_dataset_id, model_form, version, user, comment):
+    """
+    Save a Keras sequential model to the directory specified by the model title.
+    Saves the features, and history (if provided) to the model metadata.
+
+    Args:
+    - title: str, the title/name of the model.
+    - model: Keras Model object, the model to save.
+    - history: History, the training history of the model (optional).
+    - feature_dataset_id: int, ID of the dataset used for input features.
+    - model_form: str, the type of model being saved (e.g., 'sequential').
+    - version: float, the version number of the model (e.g., 0.0 for untrained, 1.0+ for trained models).
+    - user: User, the user who owns the model.
+    - comment: str, any additional comments or notes related to the model.
+
+    Returns:
+    - model_id: int, the unique identifier for the saved model metadata.
+    """
     # Determine the base directory based on the model title
     base_dir = os.path.join(settings.MODEL_ROOT, title)
     print(f'Version string: {version}')
@@ -183,8 +220,8 @@ def fetch_gpu_info():
     # Check for GPU availability
     gpus = tf.config.list_physical_devices('GPU')
     if gpus:
-        message = (f'GPU(s) detected.')
-    else:
+        message = f'GPU(s) detected: {gpus}'
+    else:        
         message = 'No GPUs detected. The model will use the CPU for training.'
 
     return message

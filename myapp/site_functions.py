@@ -4,7 +4,6 @@ import subprocess
 import pandas as pd
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from .db_functions import save_file_metadata
 from .models import FileMetadata
 
 # Function that returns the user uploaded files

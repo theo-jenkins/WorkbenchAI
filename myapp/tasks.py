@@ -12,6 +12,22 @@ from .models import FileMetadata
 
 # Function that creates a custom dataset as a dataframe
 def create_custom_dataset(file_ids, features, start_row, end_row, feature_eng_choices, aggregation_method):
+    """
+    Create a custom dataset by loading features from multiple CSV files, applying feature engineering, and optionally aggregating the data.
+
+    Args:
+    - file_ids: list of int, IDs of the files to be included in the dataset.
+    - features: list of str, names of the features/columns to be extracted from the files.
+    - start_row: int, the starting row for data extraction.
+    - end_row: int, the ending row for data extraction.
+    - feature_eng_choices: list of list, feature engineering operations to apply to each feature. 
+                           Each sublist corresponds to a feature and can include options like 
+                           'handle_missing', 'normalize', 'standardize', 'date_col'.
+    - aggregation_method: str, optional, the method for aggregating the dataset (e.g., 'D' for daily, 'H' for hourly).
+
+    Returns:
+    - pd.DataFrame: A DataFrame containing the processed and engineered dataset.
+    """
     # Initialise an empty list to hold dataframes
     dataframes = []
 

@@ -1,6 +1,6 @@
-# My Django Web App
+# WorkbenchAI - Django Web App
 
-A powerful web application that allows users to build and train neural networks.
+Currently supporting Windows and Linux, WorkbenchAI is a web application that allows users to build and train neural networks. It is built using Django and Tensorflow/Keras and can utlise GPUs for faster training.
 
 ## Table of Contents:
 - [Features](#features)
@@ -22,14 +22,18 @@ A powerful web application that allows users to build and train neural networks.
 ## Installation
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/theo-jenkins/nn_sandbox.git
+   git clone https://git.cs.bham.ac.uk/projects-2023-24/txj353
    cd nn_sandbox
    ```
 
 2. **Create a virtual environment and activate it**:
    ```bash
-   python -m venv mynnenv # Maybe 'python3'
-   source mynnenv/bin/activate  # On Windows use `conda activate mynnenv`
+   # Windows:
+   python -m venv mynnenv
+   mynnenv\Scripts\activate
+   # Linux:
+   python3 -m venv mynnenv
+   source mynnenv/bin/activate
    ```
 
 3. **Install dependencies**:
@@ -46,6 +50,19 @@ A powerful web application that allows users to build and train neural networks.
    ```bash
    python manage.py runserver
    ```
+
+## (Optional) Start Background Workers
+1. **Start Redis server**:
+   ```bash
+   redis-server
+   ```
+
+2. **Start Celery worker**:
+   ```bash
+   celery -A myproject worker --loglevel=info
+   ```
+3. **@shared_task decorator**:
+  Ensure that the ```@shared_task``` decorator is used for all tasks in the *tasks.py* file. This will ensure that the tasks are executed in the background and do not block the main thread.
 
 ## Work Flow
 - Instructions on how to use the application.
@@ -68,38 +85,11 @@ A powerful web application that allows users to build and train neural networks.
     - Start the training process.
 7. **View and evaluate** your models performance metrics.
     - After training, review the model’s performance metrics, including accuracy, loss, and visualizations like training curves.
+8. **Make predictions** using your trained model.
+    - Select the model you wish to make predictions with.
+    - Specify the input data for the prediction.
+    - View the prediction results.
 
-## Project Structure
-
-### myapp # Django app containing the core functionality
-  - templates/ # HTML templates for the front-end
-    - authentication/ # Templates related to user authentication
-    - datasets/ # Templates for dataset management and processing
-    - models/ # Templates for model building and evaluation
-    - partials/ # Reusable template components (e.g., form partials)
-    - predictions/ # Templates for making and viewing predictions
-  - apps.py # Django app configuration
-  - db_functions.py # Database-related utility functions
-  - form_choices.py # Choices used in forms (e.g., dropdown options)
-  - forms.py # Django forms used in the application
-  - model_functions.py # Functions related to model creation and training
-  - models.py # Django models representing the database schema
-  - site_functions.py # General utility functions for the site
-  - tasks.py # Background tasks and processing functions
-  - urls.py # URL routing for the Django app
-  - views.py # Views that handle the logic for each web page
-
-### myproject # Django project settings
-  - settings.py # Django project settings
-  - urls.py # URL routing for the Django project
-  - wsgi.py # WSGI configuration for deployment
-  - asgi.py # ASGI configuration for asynchronous deployment
-
-### figures/ # Directory for storing model performance figures (e.g., accuracy plots)
-### nn_models/ # Directory for storing user-created models
-### uploaded_files/ # Directory for storing user-uploaded files
-### db.sqlite3 # SQLite database file for development
-### requirements.txt # Python dependencies
 
 ## Technologies Used
 - **Django**: Web framework for building the platform
