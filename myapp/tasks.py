@@ -11,6 +11,7 @@ from .db_functions import merge_datetime
 from .models import FileMetadata
 
 # Function that creates a custom dataset as a dataframe
+@shared_task
 def create_custom_dataset(file_ids, features, start_row, end_row, feature_eng_choices, aggregation_method):
     """
     Create a custom dataset by loading features from multiple CSV files, applying feature engineering, and optionally aggregating the data.
@@ -127,6 +128,7 @@ def handle_missing(df):
     return df
 
 # Function that converts a dataset into a list of model instances
+@shared_task
 def create_model_instances(dataset, db):
     try:
         # Initializes batch size for entries saved to db
@@ -145,13 +147,14 @@ def create_model_instances(dataset, db):
         db_columns = [field.name for field in db._meta.get_fields()]
         dataset_columns = dataset.columns
         if all(column in db_columns for column in dataset_columns):
-            success = commit_to_db(entries, db, batch_size)
+            success = commit_to_db.delay(entries, db, batch_size)
             return success
     except Exception as e:
         print(f'An error occured while creating model instances: {e}')
         return False
 
 # Function that commits entries to db
+@shared_task
 def commit_to_db(entries, db, batch_size):
     try:
         # Save entries in batches
@@ -169,6 +172,7 @@ def commit_to_db(entries, db, batch_size):
 
 
 # Function that trains the selected model
+@shared_task
 def train_model(features, output, model, batch_size, epochs, verbose, validation_split):
     history = model.fit(features, output,
                     batch_size=batch_size,
