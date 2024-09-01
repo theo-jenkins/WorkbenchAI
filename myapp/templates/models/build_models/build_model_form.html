@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Build model{% endblock %}
+{% block header %}Build model{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <form id="build-model-form" method="post" enctype="multipart/form-data" action="{% url 'handle_build_model_form' %}">
+            {% csrf_token %}
+
+            <!-- Display form-level errors -->
+            {% if form_errors %}
+                <div class="alert alert-danger">
+                    {{ form_errors }}
+                </div>
+            {% endif %}
+
+            <!-- Main body of the form -->
+            <div><label for="{{ form.model_title.id_for_label }}">{{ form.model_title.label }}</label>{{ form.model_title }}</div>
+            <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+            <div><label for="{{ form.feature_dataset.id_for_label }}">{{ form.feature_dataset.label }}</label>{{ form.feature_dataset }}</div>
+            <div><label for="{{ form.model_form.id_for_label }}">{{ form.model_form.label }}</label>{{ form.model_form }}</div>
+            
+            
+            <!-- Container for dynamically loaded build model form -->
+            <div id="build-model-form-container"></div>
+
+            <button type="submit">Build model</button>
+        </form>
+        
+        <!-- JavaScript for handling form selection and AJAX -->
+        <script type="text/javascript">
+            $(document).ready(function() {
+                $('input[name="model_form"]').change(function() {
+                    var modelForm = $(this).val();
+                    var featureDataset = $('#id_feature_dataset').val();
+                    $.ajax({
+                        url: "{% url 'update_build_model_form' %}",
+                        method: "POST",
+                        data: {
+                            'build_model_form': modelForm,
+                            'feature_dataset': featureDataset,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data) {
+                            // Fills the container with the relevant model type html
+                            $('#build-model-form-container').html(data.build_model_form_html);
+                            // Evaluate the script within the inserted HTML
+                            $('#build-model-form-container').find('script').each(function(){
+                                $.globalEval(this.text || this.textContent || this.innerHTML || '');
+                            });
+                        }
+                    });
+                });
+            });
+        </script>
+        
+    {% endif %}
+{% endblock %}

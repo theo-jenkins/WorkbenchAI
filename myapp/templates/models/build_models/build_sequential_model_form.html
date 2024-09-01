@@ -1,0 +1,71 @@
+<div>
+    {% csrf_token %}
+
+    <!-- Body for input layers parameters -->
+    <div><label for="{{ seq_form.input_nodes.id_for_label }}">{{ seq_form.input_nodes.label }}</label>{{ seq_form.input_nodes }}
+    <label for="{{ seq_form.input_layer_type.id_for_label }}">{{ seq_form.input_layer_type.label }}</label>{{ seq_form.input_layer_type }}
+    <label for="{{ seq_form.input_activation.id_for_label }}">{{ seq_form.input_activation.label }}</label>{{ seq_form.input_activation }}</div>
+    
+    <!-- Hidden layers +/- button -->
+    <div>
+        <label for="{{ seq_form.hidden_layers.id_for_label }}">{{ seq_form.hidden_layers.label }}</label>
+        {{ seq_form.hidden_layers }}
+        <button type="button" id="increase-layers">+</button>
+        <button type="button" id="decrease-layers">-</button>
+    </div>
+
+    <!-- Container for dynamically loaded hidden layers form -->
+    <div id="hidden-layer-container">
+        {% include 'partials/hidden_layer_form.html' %}
+    </div>
+
+    <!-- Body for output layers parameters -->
+    <div><label for="{{ seq_form.outputs.id_for_label }}">{{ seq_form.outputs.label }}</label>{{ seq_form.outputs }}
+    <label for="{{ seq_form.output_layer_type.id_for_label }}">{{ seq_form.output_layer_type.label }}</label>{{ seq_form.output_layer_type }}
+    <label for="{{ seq_form.output_activation.id_for_label }}">{{ seq_form.output_activation.label }}</label>{{ seq_form.output_activation }}</div>
+    
+    <!-- Body for model accuracy parameters -->
+    <div><label for="{{ seq_form.optimizer.id_for_label }}">{{ seq_form.optimizer.label }}</label>{{ seq_form.optimizer }}</div>
+    <div><label for="{{ seq_form.loss.id_for_label }}">{{ seq_form.loss.label }}</label>{{ seq_form.loss }}</div>
+    <div><label for="{{ seq_form.metrics.id_for_label }}">{{ seq_form.metrics.label }}</label>{{ seq_form.metrics }}</div>
+</div>
+
+<!-- JavaScript and AJAX for handling hidden layer selection -->
+<script type="text/javascript">
+    $(document).ready(function() {
+        function updateLayers() {
+            let hiddenLayers = parseInt($('#id_hidden_layers').val());  // Fetch the latest value
+
+            $.ajax({
+                url: "{% url 'update_sequential_model_form' %}",
+                method: "POST",
+                data: {
+                    'hidden_layers': hiddenLayers,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    $('#hidden-layer-container').html(data.hidden_layer_html);
+                },
+            });
+        }
+
+        // Initial update call if necessary
+        updateLayers();
+
+        $('#increase-layers').off('click').on('click', function() {
+            let hiddenLayers = parseInt($('#id_hidden_layers').val());
+            hiddenLayers += 1;
+            $('#id_hidden_layers').val(hiddenLayers);
+            updateLayers();
+        });
+
+        $('#decrease-layers').off('click').on('click', function() {
+            let hiddenLayers = parseInt($('#id_hidden_layers').val());
+            if (hiddenLayers > 1) {
+                hiddenLayers -= 1;
+                $('#id_hidden_layers').val(hiddenLayers);
+                updateLayers();
+            }
+        });
+    });
+</script>

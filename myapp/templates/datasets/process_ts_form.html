@@ -1,0 +1,5 @@
+<div>
+    {% csrf_token %}
+    <!-- Main body for ProcessTimeSeriesForm -->
+    <div><label for="{{ form.aggregation_method.id_for_label }}">{{ form.aggregation_method.label }}</label>{{ form.aggregation_method }}</div>
+</div> 

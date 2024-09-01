@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Make Prediction{% endblock %}
+{% block header %}Make Prediction{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <body>
+            <form id="make-prediction-form" method="post" enctype="multipart/form-data" action="{% url 'handle_make_prediction_form' %}">
+                {% csrf_token %}
+                <div><label for="{{ form.model.id_for_label }}">{{ form.model.label }}</label>{{ form.model }}</div>
+                <div id="feature-fields-container"></div>
+
+                <button type="submit">Make Prediction</button>
+            </form>
+
+            <div id="prediction-container">
+                {% if prediction %}
+                    <h3>Prediction: {{ prediction }}</h3>
+                {% endif %}
+            </div>
+            
+        </body>
+        <script type="text/javascript">
+            $(document).ready(function() {
+                $('#id_model').change(function() { 
+                    var modelID = $(this).val();
+                    $.ajax({
+                        url: "{% url 'update_make_prediction_form' %}",
+                        method: "POST",
+                        data: {
+                            'model_id': modelID,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data) {
+                            // Fills the container with the relevant model type html
+                            $('#feature-fields-container').html(data.features_fields_html);
+                        }
+                    });
+                });
+        
+                // Trigger change event on page load to populate the feature fields
+                $('#id_model').change();
+            });
+        </script>
+        
+    {% endif %}
+{% endblock %}

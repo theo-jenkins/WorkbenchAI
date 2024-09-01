@@ -1,0 +1,52 @@
+﻿mpg,cylinders,displacement,horsepower,weight,acceleration,model year,origin,car name
+26,4,97,46,1835,20.5,70,2,volkswagen 1131 deluxe sedan
+25,4,110,87,2672,17.5,70,2,peugeot 504
+24,4,107,90,2430,14.5,70,2,audi 100 ls
+25,4,104,95,2375,17.5,70,2,saab 99e
+26,4,121,113,2234,12.5,70,2,bmw 2002
+21,6,199,90,2648,15,70,1,amc gremlin
+10,8,360,215,4615,14,70,1,ford f250
+10,8,307,200,4376,15,70,1,chevy c20
+11,8,318,210,4382,13.5,70,1,dodge d200
+9,8,304,193,4732,18.5,70,1,hi 1200d
+27,4,97,88,2130,14.5,71,3,datsun pl510
+28,4,140,90,2264,15.5,71,1,chevrolet vega 2300
+25,4,113,95,2228,14,71,3,toyota corona
+25,4,98,?,2046,19,71,1,ford pinto
+19,6,232,100,2634,13,71,1,amc gremlin
+16,6,225,105,3439,15.5,71,1,plymouth satellite custom
+17,6,250,100,3329,15.5,71,1,chevrolet chevelle malibu
+19,6,250,88,3302,15.5,71,1,ford torino 500
+18,6,232,100,3288,15.5,71,1,amc matador
+14,8,350,165,4209,12,71,1,chevrolet impala
+14,8,400,175,4464,11.5,71,1,pontiac catalina brougham
+14,8,351,153,4154,13.5,71,1,ford galaxie 500
+14,8,318,150,4096,13,71,1,plymouth fury iii
+12,8,383,180,4955,11.5,71,1,dodge monaco (sw)
+13,8,400,170,4746,12,71,1,ford country squire (sw)
+13,8,400,175,5140,12,71,1,pontiac safari (sw)
+18,6,258,110,2962,13.5,71,1,amc hornet sportabout (sw)
+22,4,140,72,2408,19,71,1,chevrolet vega (sw)
+19,6,250,100,3282,15,71,1,pontiac firebird
+18,6,250,88,3139,14.5,71,1,ford mustang
+23,4,122,86,2220,14,71,1,mercury capri 2000
+28,4,116,90,2123,14,71,2,opel 1900
+30,4,79,70,2074,19.5,71,2,peugeot 304
+30,4,88,76,2065,14.5,71,2,fiat 124b
+31,4,71,65,1773,19,71,3,toyota corolla 1200
+35,4,72,69,1613,18,71,3,datsun 1200
+27,4,97,60,1834,19,71,2,volkswagen model 111
+26,4,91,70,1955,20.5,71,1,plymouth cricket
+24,4,113,95,2278,15.5,72,3,toyota corona hardtop
+25,4,97.5,80,2126,17,72,1,dodge colt hardtop
+23,4,97,54,2254,23.5,72,2,volkswagen type 3
+20,4,140,90,2408,19.5,72,1,chevrolet vega
+21,4,122,86,2226,16.5,72,1,ford pinto runabout
+13,8,350,165,4274,12,72,1,chevrolet impala
+14,8,400,175,4385,12,72,1,pontiac catalina
+15,8,318,150,4135,13.5,72,1,plymouth fury iii
+14,8,351,153,4129,13,72,1,ford galaxie 500
+17,8,304,150,3672,11.5,72,1,amc ambassador sst
+11,8,429,208,4633,11,72,1,mercury marquis
+13,8,350,155,4502,13.5,72,1,buick lesabre custom
+12,8,350,160,4456,13.5,72,1,oldsmobile delta 88 royale

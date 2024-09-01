@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+
+{% block title %}Build your custom dataset{% endblock %}
+{% block header %}Build your custom dataset{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <form id="file-form" method="post" enctype="multipart/form-data" action="{% url 'handle_process_data_form' %}">
+            {% csrf_token %}
+
+            <!-- Main body for ProcessDataForm -->
+            <div><label for="{{ form.dataset_title.id_for_label }}">{{ form.dataset_title.label }}</label>{{ form.dataset_title }}</div>
+            <div><label for="{{ form.comment.id_for_label }}">{{ form.comment.label }}</label>{{ form.comment }}</div>
+            <div><label for="{{ form.dataset_form.id_for_label }}">{{ form.dataset_form.label }}</label>{{ form.dataset_form }}</div>
+            <div><label for="{{ form.dataset_type.id_for_label }}">{{ form.dataset_type.label }}</label>{{ form.dataset_type }}</div>
+            <div><label for="{{ form.files.id_for_label }}">{{ form.files.label }}</label>{{ form.files }}</div>
+
+            <!-- End row box filled with max_rows -->
+            <div><label for="{{ form.start_row.id_for_label }}">{{ form.start_row.label }}</label>{{ form.start_row }}</div>
+            <div><label for="end_row_input">{{ form.end_row.label }}</label><input type="number" name="end_row" id="end_row_input" required></div>
+
+            <!-- Container for dynamically loaded ProcessDataForm-->
+            <div id="process-dataset-form-container"></div>
+
+            <!-- Number of features +/- button -->
+            <div>
+                <label for="{{ form.features.id_for_label }}">{{ form.features.label }}</label>{{ form.features }}
+                <button type="button" id="increase-layers">+</button>
+                <button type="button" id="decrease-layers">-</button>
+            </div>
+
+            <!-- Container for dynamically loaded features form-->
+            <div id="feature-fields-container">
+                {% include 'partials/dataset_feature_fields.html' %}
+            </div>            
+
+            <button type="submit">Save to database</button>
+        </form>
+
+        <!-- JavaScript for handling chosen dataset form and AJAX-->
+        <script type="text/javascript">
+            $(document).ready(function() {
+                function updateForm() {
+                    var selectedFiles = $('input[name="files"]:checked').map(function() {
+                        return $(this).val();
+                    }).get();
+                    var features = $('#id_features').val();
+                    var datasetForm = $('input[name="dataset_form"]:checked').val();  // Get the selected dataset form
+        
+                    $.ajax({
+                        url: "{% url 'update_process_data_form' %}",
+                        method: "POST",
+                        data: {
+                            'dataset_form': datasetForm,
+                            'files': selectedFiles,
+                            'features': features,
+                            'csrfmiddlewaretoken': '{{ csrf_token }}'
+                        },
+                        success: function(data) {
+                            $('#end_row_input').attr('max', data.max_rows).val(data.max_rows);  // Update end_row_input with max_rows
+                            $('#process-dataset-form-container').html(data.process_dataset_form_html);  // Update the form container
+                            $('#feature-fields-container').html(data.feature_fields_html);  // Update the feature fields
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Error: ", error);
+                        }
+                    });
+                }
+        
+                // Event listener for file changes
+                $('#file-form').on('change', 'input[name="files"]', function() {
+                    updateForm();
+                });
+        
+                // Event listener for dataset form changes
+                $('#file-form').on('change', 'input[name="dataset_form"]', function() {
+                    updateForm();  // Update form on dataset form change
+                });
+        
+                // Event listener for increasing features
+                $('#increase-layers').off('click').on('click', function() {
+                    let features = parseInt($('#id_features').val());
+                    features += 1;
+                    $('#id_features').val(features);
+                    updateForm();
+                });
+        
+                // Event listener for decreasing features
+                $('#decrease-layers').off('click').on('click', function() {
+                    let features = parseInt($('#id_features').val());
+                    if (features > 1) {
+                        features -= 1;
+                        $('#id_features').val(features);
+                        updateForm();
+                    }
+                });
+        
+                // Initial call to set up the form on page load
+                updateForm();
+            });
+        </script>
+    {% endif %}
+{% endblock %}

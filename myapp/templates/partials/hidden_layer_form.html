@@ -1,0 +1,17 @@
+{% load custom_filters %}
+
+{% for i in range %}
+    <div>
+        {% get_dynamic_field seq_form 'nodes' i as node_field %}
+        <label for="{{ node_field.id_for_label }}">Nodes {{ forloop.counter }}</label>
+        {{ node_field }}
+
+        {% get_dynamic_field seq_form 'layer_type' i as layer_type_field %}
+        <label for="{{ layer_type_field.id_for_label }}">Layer Type {{ forloop.counter }}</label>
+        {{ layer_type_field }}
+
+        {% get_dynamic_field seq_form 'activation' i as activation_field %}
+        <label for="{{ activation_field.id_for_label }}">Activation {{ forloop.counter }}</label>
+        {{ activation_field }}
+    </div>
+{% endfor %}
