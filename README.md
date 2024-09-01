@@ -2,7 +2,7 @@
 
 Currently supporting Windows and Linux, WorkbenchAI is a web application that allows users to build and train neural networks. It is built using Django and Tensorflow/Keras and can utlise GPUs for faster training.
 
-Use the win_branch to build the application on Windows. Use the ubuntu_branch to benefit from the GPU support and background worker functionality.
+Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch* to benefit from the GPU support and background worker functionality.  
 
 ## Table of Contents:
 - [Features](#features)
