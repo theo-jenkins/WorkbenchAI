@@ -63,6 +63,8 @@ Currently supporting Windows and Linux, WorkbenchAI is a web application that al
    ```
 3. **@shared_task decorator**:
   Ensure that the ```@shared_task``` decorator is used for all tasks in the *tasks.py* file. This will ensure that the tasks are executed in the background and do not block the main thread.
+4. **.delay method**:
+  The ```.delay()``` method is used to send a task to the Celery worker asynchronously. This method returns a ```AsyncResult``` object, which can be used to check the status of the task.
 
 ## Work Flow
 - Instructions on how to use the application.
