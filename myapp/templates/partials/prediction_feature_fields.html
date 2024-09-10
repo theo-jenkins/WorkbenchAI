@@ -1,0 +1,10 @@
+{% load custom_filters %}
+
+{% for feature in features %}
+    {% with field=form|get_field:feature %}
+        <div>
+            <label for="{{ field.id_for_label }}">{{ feature }}</label> 
+            {{ field }}
+        </div>
+    {% endwith %}
+{% endfor %}

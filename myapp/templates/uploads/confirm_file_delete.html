@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete file{% endblock %}
+{% block header %}Delete file{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <p>Are you sure you want to delete the file titled "{{ file.filename }}"?</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit">Yes, delete</button>
+            <a href="{% url 'upload_files_form' %}">Cancel</a>
+        </form>
+    {% endif %}
+{% endblock %}

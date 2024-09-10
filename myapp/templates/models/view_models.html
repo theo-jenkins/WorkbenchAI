@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}View models{% endblock %}
+{% block header %}View models{% endblock %}
+
+{% block content %}
+    {% if user.is_authenticated %}
+        <body>
+            <h1>Your models</h1>
+            <!-- Table header for all models -->
+            <table border="1" style="border-collapse: collapse; width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Comment</th>
+                        <th>Created at</th>
+                        <th>Form</th>
+                        <th>Tag</th>
+                        <th>Version</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <!-- Table body for set model metadata -->
+                <tbody>
+                    {% for model in models %}
+                    <tr>
+                        <td>{{ model.title }}</td>
+                        <td>{{ model.comment }}</td>
+                        <td>{{ model.created_at }}</td>
+                        <td>{{ model.form }}</td>
+                        <td>{{ model.tag }}</td>
+                        <td>{{ model.version }}</td>
+                        <td>
+                            {% if model.version != 0.0 %}
+                                <a href="{% url 'evaluate_model' model.id %}">Evaluate</a><br>
+                            {% endif %}
+                            <a href="{% url 'view_model' model.id %}">View</a><br>
+                            <a href="{% url 'delete_model' model.id %}">Delete</a><br>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </body>
+    {% endif %}
+{% endblock %}
