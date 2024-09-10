@@ -4,6 +4,7 @@ Currently supporting Windows and Linux, WorkbenchAI is a web application that al
 
 Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch* to benefit from the GPU support and background worker functionality.
 
+
 ## Table of Contents:
 - [Features](#features)
 - [Installation](#installation)
@@ -24,8 +25,8 @@ Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch
 ## Installation
 1. **Clone the repository**:
    ```bash
-   git clone https://git.cs.bham.ac.uk/projects-2023-24/txj353
-   cd nn_sandbox
+   git clone https://github.com/theo-jenkins/nn_sandbox.git
+   cd your-repo-name
    ```
 
 2. **Create a virtual environment and activate it**:
@@ -65,6 +66,8 @@ Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch
    ```
 3. **@shared_task decorator**:
   Ensure that the ```@shared_task``` decorator is used for all tasks in the *tasks.py* file. This will ensure that the tasks are executed in the background and do not block the main thread.
+4. **.delay method**:
+  The ```.delay()``` method is used to send a task to the Celery worker asynchronously. This method returns a ```AsyncResult``` object, which can be used to check the status of the task.
 
 ## Work Flow
 - Instructions on how to use the application.
@@ -91,7 +94,6 @@ Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch
     - Select the model you wish to make predictions with.
     - Specify the input data for the prediction.
     - View the prediction results.
-
 
 ## Technologies Used
 - **Django**: Web framework for building the platform
