@@ -4,6 +4,7 @@ Currently supporting Windows and Linux, WorkbenchAI is a web application that al
 
 Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch* to benefit from the GPU support and background worker functionality.  
 
+
 ## Table of Contents:
 - [Features](#features)
 - [Installation](#installation)
@@ -24,8 +25,8 @@ Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch
 ## Installation
 1. **Clone the repository**:
    ```bash
-   git clone https://git.cs.bham.ac.uk/projects-2023-24/txj353
-   cd nn_sandbox
+   git clone https://github.com/theo-jenkins/nn_sandbox.git
+   cd your-repo-name
    ```
 
 2. **Create a virtual environment and activate it**:
@@ -93,7 +94,6 @@ Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch
     - Select the model you wish to make predictions with.
     - Specify the input data for the prediction.
     - View the prediction results.
-
 
 ## Technologies Used
 - **Django**: Web framework for building the platform
