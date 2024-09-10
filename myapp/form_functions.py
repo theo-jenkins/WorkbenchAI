@@ -111,13 +111,13 @@ def handle_process_data_form(request):
 # Function to handle dataset processing and saving for ProcessDataForm
 def process_and_save_dataset(request, dataset_title, dataset_comment, dataset_form, dataset_type, file_ids, start_row, end_row, features, feature_eng_choices, aggregation_method):
     # Create a DataFrame from the provided files and parameters
-    dataset = create_custom_dataset.delay(file_ids, features, start_row, end_row, feature_eng_choices, aggregation_method)
+    dataset = create_custom_dataset(file_ids, features, start_row, end_row, feature_eng_choices, aggregation_method)
 
     # Create a database table from the DataFrame
     db = create_custom_db(dataset_title, dataset)
 
     # Populate the table with the table
-    dataset_saved = create_model_instances.delay(dataset, db)
+    dataset_saved = create_model_instances(dataset, db)
 
     # Saves metadata entry if db table is created
     if db:
@@ -327,7 +327,7 @@ def handle_train_model_form(request):
             model = prepare_model(model_id)
 
             # Trains model on loaded datasets
-            history, model = train_model.delay(features, outputs, model, batch_size, epochs, verbose, validation_split)
+            history, model = train_model(features, outputs, model, batch_size, epochs, verbose, validation_split)
             model_metadata = ModelMetadata.objects.get(id=model_id)
             if history is not None:
                 version_float = get_max_version(model_metadata.title)
