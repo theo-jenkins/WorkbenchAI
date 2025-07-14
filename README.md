@@ -13,7 +13,7 @@ Whether you’re experimenting with tabular data or building a model from scratc
 ![GPU detection](images/gpu_detection_workbench.png)
 
 <div align="center">
-  <img src="images/system_arch_workbench.png" alt="System Architecture" width="600"/>
+  <img src="images/system_arch_workbenchai.png" alt="System Architecture" width="600"/>
 </div>
 
 
