@@ -7,13 +7,15 @@ Whether you’re experimenting with tabular data or building a model from scratc
 ## Previews:
 
  - Illustrates the modular structure of the application—showing how site_functions, db_functions, and model_functions interact. Also outlines the communication between Django and the background worker for asynchronous tasks.
-![System Architecture of the application](images/system_arch_workbenchai.png)
-
- - WorkbenchAI automatically detects NVIDIA GPUs and leverages the CUDA toolkit (if available) to accelerate model training for significantly improved performance. Additionally the platform can detect when incompatible datasets have been selected and prompt the user to select differently.
-![GPU detection](images/gpu_detection_workbench.png)
 
 <div align="center">
   <img src="images/system_arch_workbenchai.png" alt="System Architecture" width="600"/>
+</div>
+
+ - WorkbenchAI automatically detects NVIDIA GPUs and leverages the CUDA toolkit (if available) to accelerate model training for significantly improved performance. Additionally the platform can detect when incompatible datasets have been selected and prompt the user to select differently.
+
+<div align="center">
+  <img src="images/gpu_detection_workbench.png" alt="GPU-aware" width="600"/>
 </div>
 
 
