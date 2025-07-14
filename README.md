@@ -1,16 +1,31 @@
 # WorkbenchAI - Django Web App
 
-Currently supporting Windows and Linux, WorkbenchAI is a web application that allows users to build and train neural networks. It is built using Django and Tensorflow/Keras and can utlise GPUs for faster training.
+WorkbenchAI is a full-stack web application that allows users to build, train, and deploy neural networks in the browser—no coding required. Built with Django and TensorFlow/Keras, the app is modular, GPU-aware, and compatible with Windows and Linux.
 
-Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch* to benefit from the GPU support and background worker functionality.  
+Whether you’re experimenting with tabular data or building a model from scratch, WorkbenchAI helps you go from raw dataset to real predictions, all within a single app.
+
+## Previews:
+
+Illustrates the modular structure of the application—showing how site_functions, db_functions, and model_functions interact. Also outlines the communication between Django and the background worker for asynchronous tasks.
+![System Architecture of the application](images/system_arch_workbench.png)
+
+WorkbenchAI automatically detects NVIDIA GPUs and leverages the CUDA toolkit (if available) to accelerate model training for significantly improved performance.
+![GPU detection](images/gpu_detection_workbench.png)
 
 
 ## Table of Contents:
+- [Technologies Used](#technologies-used)
 - [Features](#features)
 - [Installation](#installation)
 - [Work Flow](#work-flow)
 - [Project Structure](#project-structure)
-- [Technologies Used](#technologies-used)
+
+- ## Technologies Used
+- **Django**: Web framework for building the platform
+- **Tensorflow/Keras**: Used for building and training neural networks
+- **JavaScript/jQuery**: For dynamic form rendering and detecting client side interations
+- **HTML**: For front-end development
+- **SQLite**: Default database for development
 
 ## Features
 - Account creation
@@ -94,10 +109,3 @@ Use the *win_branch* to build the application on Windows. Use the *ubuntu_branch
     - Select the model you wish to make predictions with.
     - Specify the input data for the prediction.
     - View the prediction results.
-
-## Technologies Used
-- **Django**: Web framework for building the platform
-- **Tensorflow/Keras**: Used for building and training neural networks
-- **JavaScript/jQuery**: For dynamic form rendering and detecting client side interations
-- **HTML**: For front-end development
-- **SQLite**: Default database for development
