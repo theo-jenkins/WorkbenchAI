@@ -12,7 +12,9 @@ Whether you’re experimenting with tabular data or building a model from scratc
  - WorkbenchAI automatically detects NVIDIA GPUs and leverages the CUDA toolkit (if available) to accelerate model training for significantly improved performance. Additionally the platform can detect when incompatible datasets have been selected and prompt the user to select differently.
 ![GPU detection](images/gpu_detection_workbench.png)
 
-<img src="images/system_arch_workbenchai.png" alt="System Architecture" width="600"/>
+<div align="center">
+  <img src="images/system_arch_workbench.png" alt="System Architecture" width="600"/>
+</div>
 
 
 ## Table of Contents:
